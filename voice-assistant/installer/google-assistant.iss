@@ -1,10 +1,10 @@
 ; Google Assistant Windows installer
 #define MyAppName "Google Assistant"
 #ifndef MyAppVersion
-#define MyAppVersion "34.5.07"
+#define MyAppVersion "34.5.09"
 #endif
 #ifndef MyVersionInfoVersion
-#define MyVersionInfoVersion "34.5.7.0"
+#define MyVersionInfoVersion "34.5.9.0"
 #endif
 #define MyAppPublisher "Google Assistant"
 #define MyAppExeName "GoogleAssistant.exe"

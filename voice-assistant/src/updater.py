@@ -11,7 +11,7 @@ import sys
 import threading
 import time
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
@@ -23,17 +23,14 @@ logger = logging.getLogger(__name__)
 TASK_NAME = "GoogleAssistantSilentUpdate"
 START_DELAY_SEC = 8
 CHECK_INTERVAL_SEC = 30 * 60
-NotifyFn = Callable[[str], None]
 CREATE_NO_WINDOW = 0x08000000
 
 
 class AppUpdater:
-    def __init__(self, backend_url: Callable[[], str], notify: NotifyFn) -> None:
+    def __init__(self, backend_url: Callable[[], str]) -> None:
         self._backend_url = backend_url
-        self._notify = notify
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
-        self._told_current = False
 
     def start(self) -> None:
         if not getattr(sys, "frozen", False):
@@ -62,48 +59,28 @@ class AppUpdater:
         pending = _read_json(_pending_path())
         if not pending:
             return
-        self._told_current = True
         try:
             _pending_path().unlink(missing_ok=True)
         except OSError:
             pass
-        wanted = str(pending.get("to") or "")
-        previous = str(pending.get("from") or "")
-        if wanted and not is_newer(wanted, APP_VERSION):
-            self._notify(f"Google Assistant updated to {APP_VERSION}")
-            return
-        if previous and previous == APP_VERSION:
-            self._notify(f"Google Assistant was not updated (still {APP_VERSION})")
-            return
-        self._notify(f"Google Assistant is running version {APP_VERSION}")
 
     def _check_once(self) -> bool:
         latest = _fetch_latest(self._backend_url())
         if latest is None:
-            if not self._told_current:
-                self._notify("Could not check for Google Assistant updates")
-                self._told_current = True
             return False
         remote = str(latest.get("version") or "")
         if not latest.get("available") or not remote or not is_newer(remote, APP_VERSION):
-            if not self._told_current:
-                self._notify(f"Google Assistant is up to date ({APP_VERSION})")
-                self._told_current = True
             return False
 
-        self._notify(f"Downloading Google Assistant {remote}…")
         installer = _download_installer(self._backend_url(), str(latest.get("url") or "/api/app/download"))
         if installer is None:
-            self._notify("Google Assistant update download failed")
             return False
-        staged = _stage_installer(installer)
+        _stage_installer(installer)
         _write_json(
             _pending_path(),
             {"from": APP_VERSION, "to": remote, "at": time.time()},
         )
-        self._notify(f"Installing Google Assistant {remote}…")
         if not _start_silent_install():
-            self._notify("Google Assistant update could not start")
             try:
                 _pending_path().unlink(missing_ok=True)
             except OSError:

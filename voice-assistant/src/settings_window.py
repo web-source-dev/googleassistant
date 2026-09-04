@@ -7,7 +7,7 @@ from typing import Callable
 
 import customtkinter as ctk
 
-from src.config import APP_NAME
+from src.config import APP_NAME, DEFAULT_BACKEND_URL
 from src.version import APP_VERSION
 
 
@@ -116,7 +116,7 @@ class SettingsWindow:
         ).pack(anchor="w", padx=12, pady=(0, 8))
 
         self.backend_entry = self._labeled_entry(
-            rec, "Backend URL", self.config.get("backend_url", "http://127.0.0.1:8000")
+            rec, "Backend URL", self.config.get("backend_url", DEFAULT_BACKEND_URL)
         )
         self.fps_entry = self._labeled_entry(rec, "FPS", self.config.get("record_fps", 30))
         self.quality_entry = self._labeled_entry(rec, "JPEG quality (30-95)", self.config.get("record_quality", 50))
@@ -188,7 +188,7 @@ class SettingsWindow:
                 "phrase_time_limit": int(self.phrase_entry.get()),
                 "screen_record": self.record_var.get(),
                 "send_voice": self.send_voice_var.get(),
-                "backend_url": self.backend_entry.get().strip() or "http://127.0.0.1:8000",
+                "backend_url": self.backend_entry.get().strip() or DEFAULT_BACKEND_URL,
                 "record_fps": int(self.fps_entry.get()),
                 "record_quality": int(self.quality_entry.get()),
                 "record_max_width": int(self.max_width_entry.get()),

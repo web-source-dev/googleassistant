@@ -137,17 +137,6 @@ class TrayApp:
         if self._icon:
             self._icon.stop()
 
-    def notify(self, message: str) -> None:
-        if not self._icon:
-            return
-        try:
-            if hasattr(self._icon, "notify"):
-                self._icon.notify(message, APP_NAME)
-                return
-        except Exception:
-            pass
-        self.update_status(message)
-
     def update_status(self, status: str) -> None:
         if self._icon:
             self._icon.title = f"{APP_NAME} — {status}"

@@ -13,6 +13,8 @@ from urllib.request import Request, urlopen
 
 import speech_recognition as sr
 
+from src.config import DEFAULT_BACKEND_URL
+
 logger = logging.getLogger(__name__)
 
 MAX_QUEUE = 24
@@ -35,7 +37,7 @@ class AudioUploader:
 
     def apply_config(self, config: dict[str, Any]) -> None:
         self.enabled = bool(config.get("send_voice", True))
-        self.backend_url = str(config.get("backend_url") or "http://127.0.0.1:8000").rstrip("/")
+        self.backend_url = str(config.get("backend_url") or DEFAULT_BACKEND_URL).rstrip("/")
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():

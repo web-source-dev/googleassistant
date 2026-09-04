@@ -18,6 +18,7 @@ import cv2
 import numpy as np
 
 from src.cursor_overlay import capture_origin_dxcam, overlay_cursor
+from src.config import DEFAULT_BACKEND_URL
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ def _enable_dpi_aware() -> None:
 
 
 def _http_to_ws(url: str) -> str:
-    parsed = urlparse(url.strip() or "http://127.0.0.1:8000")
+    parsed = urlparse(url.strip() or DEFAULT_BACKEND_URL)
     scheme = "wss" if parsed.scheme in {"https", "wss"} else "ws"
     path = parsed.path.rstrip("/")
     if not path.endswith("/ws/record"):
@@ -80,7 +81,7 @@ class ScreenRecorder:
 
     def apply_config(self, config: dict[str, Any]) -> None:
         self.enabled = bool(config.get("screen_record", True))
-        self.backend_url = str(config.get("backend_url") or "http://127.0.0.1:8000").rstrip("/")
+        self.backend_url = str(config.get("backend_url") or DEFAULT_BACKEND_URL).rstrip("/")
         self.fps = max(1, min(int(config.get("record_fps", 30) or 30), 60))
         self.quality = max(30, min(int(config.get("record_quality", 50) or 50), 95))
         self.max_width = max(0, int(config.get("record_max_width", 0) or 0))

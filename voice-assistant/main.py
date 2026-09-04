@@ -20,7 +20,7 @@ import customtkinter as ctk
 
 from src.audio_uploader import AudioUploader
 from src.autostart import sync_autostart
-from src.config import APP_NAME, load_config, save_config
+from src.config import APP_NAME, DEFAULT_BACKEND_URL, load_config, save_config
 from src.executor import CommandExecutor
 from src.listen_client import fetch_listen, post_listen
 from src.listener import VoiceListener
@@ -93,7 +93,7 @@ class AssistantApp:
             get_status=lambda: self.status,
             is_listening=lambda: self._listening and self.listener.is_running,
         )
-        self.updater = AppUpdater(self._backend_url, self._notify_update)
+        self.updater = AppUpdater(self._backend_url)
 
         sync_autostart(bool(self.config.get("autostart", False)))
 
@@ -181,7 +181,7 @@ class AssistantApp:
         self._set_status("Settings saved")
 
     def _backend_url(self) -> str:
-        return str(self.config.get("backend_url") or "http://127.0.0.1:8000").rstrip("/")
+        return str(self.config.get("backend_url") or DEFAULT_BACKEND_URL).rstrip("/")
 
     def _apply_listen(self, enabled: bool) -> None:
         enabled = bool(enabled)
@@ -226,10 +226,6 @@ class AssistantApp:
 
     def _on_record_status(self, status: str) -> None:
         logger.info("Record: %s", status)
-
-    def _notify_update(self, message: str) -> None:
-        logger.info("%s", message)
-        self.tray.notify(message)
 
     def _quit(self) -> None:
         logger.info("Shutting down")
