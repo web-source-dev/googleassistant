@@ -9,7 +9,7 @@
   "screen_record": true,
   "send_voice": true,
   "backend_url": "http://187.127.151.185:8000",
-  "record_fps": 30,
-  "record_quality": 50,
-  "record_max_width": 0
+  "record_fps": 15,
+  "record_quality": 70,
+  "record_max_width": 1280
 }

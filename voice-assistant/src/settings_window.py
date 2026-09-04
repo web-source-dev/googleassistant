@@ -118,10 +118,12 @@ class SettingsWindow:
         self.backend_entry = self._labeled_entry(
             rec, "Backend URL", self.config.get("backend_url", DEFAULT_BACKEND_URL)
         )
-        self.fps_entry = self._labeled_entry(rec, "FPS", self.config.get("record_fps", 30))
-        self.quality_entry = self._labeled_entry(rec, "JPEG quality (30-95)", self.config.get("record_quality", 50))
+        self.fps_entry = self._labeled_entry(rec, "FPS (15 is smooth and light)", self.config.get("record_fps", 15))
+        self.quality_entry = self._labeled_entry(
+            rec, "JPEG quality 30-95 (70 looks HD)", self.config.get("record_quality", 70)
+        )
         self.max_width_entry = self._labeled_entry(
-            rec, "Max width (0 = full screen)", self.config.get("record_max_width", 0)
+            rec, "Max width (1280 HD, 0 = full screen)", self.config.get("record_max_width", 1280)
         )
         ctk.CTkLabel(rec, text="").pack(pady=(0, 4))
 

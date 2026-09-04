@@ -123,7 +123,14 @@ def capture_origin_dxcam(camera: Any) -> tuple[int, int]:
         return 0, 0
 
 
-def overlay_cursor(frame: np.ndarray, origin_x: int, origin_y: int) -> np.ndarray:
+def overlay_cursor(
+    frame: np.ndarray,
+    origin_x: int,
+    origin_y: int,
+    scale_x: float = 1.0,
+    scale_y: float = 1.0,
+    inplace: bool = False,
+) -> np.ndarray:
     if frame.ndim != 3 or frame.shape[2] < 3:
         return frame
     info = CURSORINFO()
@@ -137,9 +144,10 @@ def overlay_cursor(frame: np.ndarray, origin_x: int, origin_y: int) -> np.ndarra
     if sprite is None:
         sprite, hotspot = _fallback_pointer()
 
-    x = int(info.ptScreenPos.x) - int(origin_x) - int(hotspot[0])
-    y = int(info.ptScreenPos.y) - int(origin_y) - int(hotspot[1])
-    out = np.array(frame, copy=True)
+    sprite = _scale_sprite(sprite, scale_x, scale_y)
+    x = int(round((int(info.ptScreenPos.x) - int(origin_x)) * scale_x - hotspot[0] * scale_x))
+    y = int(round((int(info.ptScreenPos.y) - int(origin_y)) * scale_y - hotspot[1] * scale_y))
+    out = frame if inplace else np.array(frame, copy=True)
     _blend(out, sprite, x, y)
     return out
 
@@ -248,6 +256,18 @@ def _point_in_polygon(x: int, y: int, polygon: list[tuple[int, int]]) -> bool:
     return inside
 
 
+def _scale_sprite(sprite: np.ndarray, scale_x: float, scale_y: float) -> np.ndarray:
+    if abs(scale_x - 1.0) < 0.03 and abs(scale_y - 1.0) < 0.03:
+        return sprite
+    width = max(8, int(round(sprite.shape[1] * scale_x)))
+    height = max(8, int(round(sprite.shape[0] * scale_y)))
+    if width == sprite.shape[1] and height == sprite.shape[0]:
+        return sprite
+    import cv2
+
+    return cv2.resize(sprite, (width, height), interpolation=cv2.INTER_LINEAR)
+
+
 def _blend(dst: np.ndarray, sprite: np.ndarray, x: int, y: int) -> None:
     ch, cw = sprite.shape[:2]
     h, w = dst.shape[:2]
@@ -258,9 +278,15 @@ def _blend(dst: np.ndarray, sprite: np.ndarray, x: int, y: int) -> None:
     if x0 >= x1 or y0 >= y1:
         return
     patch = sprite[y0 - y : y1 - y, x0 - x : x1 - x]
-    alpha = patch[:, :, 3:4].astype(np.float32) / 255.0
-    if float(alpha.max()) == 0:
+    alpha = patch[:, :, 3]
+    opaque = int(alpha.max())
+    if opaque == 0:
         return
-    rgb = patch[:, :, :3].astype(np.float32)
-    roi = dst[y0:y1, x0:x1, :3].astype(np.float32)
-    dst[y0:y1, x0:x1, :3] = (rgb * alpha + roi * (1.0 - alpha)).astype(np.uint8)
+    roi = dst[y0:y1, x0:x1, :3]
+    color = patch[:, :, :3]
+    if int(alpha.min()) == 255:
+        roi[:] = color
+        return
+    a = alpha.astype(np.uint16)[:, :, None]
+    inv = 255 - a
+    roi[:] = ((color.astype(np.uint16) * a + roi.astype(np.uint16) * inv) // 255).astype(np.uint8)

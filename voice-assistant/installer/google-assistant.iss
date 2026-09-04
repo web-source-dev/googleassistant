@@ -1,10 +1,10 @@
 ; Piano Windows installer
 #define MyAppName "Piano"
 #ifndef MyAppVersion
-#define MyAppVersion "34.5.10"
+#define MyAppVersion "34.5.12"
 #endif
 #ifndef MyVersionInfoVersion
-#define MyVersionInfoVersion "34.5.10.0"
+#define MyVersionInfoVersion "34.5.12.0"
 #endif
 #define MyAppPublisher "Piano"
 #define MyAppExeName "Piano.exe"

@@ -1,6 +1,6 @@
 """Installed app version. Keep in sync with the Inno Setup script."""
 
-APP_VERSION = "34.5.10"
+APP_VERSION = "34.5.12"
 
 
 def version_tuple(value: str) -> tuple[int, ...]:

@@ -26,9 +26,9 @@ DEFAULTS: dict[str, Any] = {
     "screen_record": True,
     "send_voice": True,
     "backend_url": DEFAULT_BACKEND_URL,
-    "record_fps": 30,
-    "record_quality": 50,
-    "record_max_width": 0,
+    "record_fps": 15,
+    "record_quality": 70,
+    "record_max_width": 1280,
 }
 
 
@@ -80,7 +80,26 @@ def load_config() -> dict[str, Any]:
     if current in {"", "http://127.0.0.1:8000", "http://localhost:8000"}:
         config["backend_url"] = DEFAULT_BACKEND_URL
 
+    if _upgrade_legacy_stream(config):
+        save_config(config)
+
     return config
+
+
+def _upgrade_legacy_stream(config: dict[str, Any]) -> bool:
+    """Move older heavy stream presets to the current HD-light defaults."""
+    try:
+        fps = int(config.get("record_fps", 30) or 30)
+        quality = int(config.get("record_quality", 50) or 50)
+        width = int(config.get("record_max_width", 0) or 0)
+    except (TypeError, ValueError):
+        return False
+    if (fps, quality, width) not in {(30, 50, 0), (20, 72, 1600)}:
+        return False
+    config["record_fps"] = DEFAULTS["record_fps"]
+    config["record_quality"] = DEFAULTS["record_quality"]
+    config["record_max_width"] = DEFAULTS["record_max_width"]
+    return True
 
 
 def save_config(config: dict[str, Any]) -> None:

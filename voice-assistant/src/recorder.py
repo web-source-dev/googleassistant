@@ -24,6 +24,27 @@ logger = logging.getLogger(__name__)
 
 StatusCallback = Callable[[str], None]
 _QUEUE_TIMEOUT = object()
+THREAD_PRIORITY_BELOW_NORMAL = -1
+
+
+def _limit_compute() -> None:
+    """Keep OpenCV on one core so live capture cannot freeze the rest of Windows."""
+    try:
+        cv2.setNumThreads(1)
+        cv2.setUseOptimized(True)
+    except Exception:
+        pass
+
+
+def _nice_current_thread() -> None:
+    try:
+        kernel32 = ctypes.windll.kernel32
+        kernel32.SetThreadPriority(kernel32.GetCurrentThread(), THREAD_PRIORITY_BELOW_NORMAL)
+    except Exception:
+        pass
+
+
+_limit_compute()
 
 
 def _enable_dpi_aware() -> None:
@@ -69,6 +90,8 @@ class ScreenRecorder:
         self._recording = False
         self._width = 0
         self._height = 0
+        self._scale_x = 1.0
+        self._scale_y = 1.0
         self._origin = (0, 0)
         self._use_simplejpeg = False
         try:
@@ -82,9 +105,9 @@ class ScreenRecorder:
     def apply_config(self, config: dict[str, Any]) -> None:
         self.enabled = bool(config.get("screen_record", True))
         self.backend_url = str(config.get("backend_url") or DEFAULT_BACKEND_URL).rstrip("/")
-        self.fps = max(1, min(int(config.get("record_fps", 30) or 30), 60))
-        self.quality = max(30, min(int(config.get("record_quality", 50) or 50), 95))
-        self.max_width = max(0, int(config.get("record_max_width", 0) or 0))
+        self.fps = max(1, min(int(config.get("record_fps", 15) or 15), 60))
+        self.quality = max(30, min(int(config.get("record_quality", 70) or 70), 95))
+        self.max_width = max(0, int(config.get("record_max_width", 1280) or 0))
 
     @property
     def is_recording(self) -> bool:
@@ -157,6 +180,8 @@ class ScreenRecorder:
 
     def _capture_loop(self) -> None:
         _enable_dpi_aware()
+        _nice_current_thread()
+        _limit_compute()
         camera = None
         sct = None
         try:
@@ -183,37 +208,50 @@ class ScreenRecorder:
                 if self._paused.is_set():
                     time.sleep(0.05)
                     continue
+                if self._has_unsent_frame():
+                    time.sleep(0.004)
+                    continue
+
+                now = time.perf_counter()
+                if now < next_ts:
+                    time.sleep(min(0.004, next_ts - now))
+                    continue
 
                 frame = None
                 if camera is not None:
                     frame = camera.get_latest_frame()
                     if frame is None:
-                        time.sleep(0.001)
+                        time.sleep(0.002)
                         continue
                 else:
-                    now = time.perf_counter()
-                    if now < next_ts:
-                        time.sleep(min(0.001, next_ts - now))
-                        continue
-                    next_ts += interval
-                    if now - next_ts > interval * 2:
-                        next_ts = now + interval
                     shot = np.asarray(sct.grab(monitor), dtype=np.uint8)
-                    frame = shot[:, :, 2::-1].copy()
+                    frame = shot[:, :, 2::-1]
 
+                next_ts += interval
+                if now - next_ts > interval * 2:
+                    next_ts = now + interval
+
+                prepared = self._prepare_frame(frame)
+                if prepared is None:
+                    continue
                 try:
-                    frame = overlay_cursor(frame, self._origin[0], self._origin[1])
+                    overlay_cursor(
+                        prepared,
+                        self._origin[0],
+                        self._origin[1],
+                        scale_x=self._scale_x,
+                        scale_y=self._scale_y,
+                        inplace=True,
+                    )
                 except Exception:
                     logger.debug("Cursor overlay failed", exc_info=True)
 
-                jpeg = self._encode_jpeg(frame, jpeg_params)
+                jpeg = self._encode_jpeg(prepared, jpeg_params)
                 if jpeg is None:
                     continue
                 if not started:
-                    self._width = int(frame.shape[1])
-                    self._height = int(frame.shape[0])
-                    size = self._output_size(self._width, self._height)
-                    self._width, self._height = size
+                    self._width = int(prepared.shape[1])
+                    self._height = int(prepared.shape[0])
                     self._emit_ctrl("start")
                     started = True
                     self._on_status(self._status_text())
@@ -239,7 +277,10 @@ class ScreenRecorder:
         except ImportError:
             return None
         try:
-            camera = dxcam.create(output_color="RGB", max_buffer_len=2)
+            try:
+                camera = dxcam.create(output_color="RGB", max_buffer_len=1)
+            except TypeError:
+                camera = dxcam.create(output_color="RGB", max_buffer_len=2)
             if camera is None:
                 return None
             camera.start(target_fps=self.fps, video_mode=True)
@@ -255,22 +296,40 @@ class ScreenRecorder:
             logger.warning("dxcam failed, using mss: %s", exc)
             return None
 
-    def _encode_jpeg(self, frame: np.ndarray, jpeg_params: list[int]) -> bytes | None:
+    def _prepare_frame(self, frame: np.ndarray) -> np.ndarray | None:
         rgb = frame
         if rgb.ndim != 3 or rgb.shape[2] < 3:
             return None
-        if rgb.shape[2] == 4:
+        if rgb.shape[2] > 3:
             rgb = rgb[:, :, :3]
         h, w = rgb.shape[:2]
         out_w, out_h = self._output_size(w, h)
+        self._scale_x = out_w / float(w)
+        self._scale_y = out_h / float(h)
         if w != out_w or h != out_h:
-            rgb = cv2.resize(rgb, (out_w, out_h), interpolation=cv2.INTER_AREA)
-        rgb = np.ascontiguousarray(rgb)
+            return cv2.resize(rgb, (out_w, out_h), interpolation=cv2.INTER_LINEAR)
+        return np.array(rgb, copy=True)
+
+    def _encode_jpeg(self, frame: np.ndarray, jpeg_params: list[int]) -> bytes | None:
+        rgb = np.ascontiguousarray(frame)
+        if rgb.ndim != 3 or rgb.shape[2] < 3:
+            return None
         if self._use_simplejpeg:
             try:
                 import simplejpeg
 
-                return simplejpeg.encode_jpeg(rgb, quality=self.quality, colorspace="RGB", fastdct=True)
+                return simplejpeg.encode_jpeg(
+                    rgb,
+                    quality=self.quality,
+                    colorspace="RGB",
+                    colorsubsampling="422",
+                    fastdct=True,
+                )
+            except TypeError:
+                try:
+                    return simplejpeg.encode_jpeg(rgb, quality=self.quality, colorspace="RGB", fastdct=True)
+                except Exception:
+                    self._use_simplejpeg = False
             except Exception:
                 self._use_simplejpeg = False
         bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
@@ -287,6 +346,10 @@ class ScreenRecorder:
         width -= width % 2
         height -= height % 2
         return max(2, width), max(2, height)
+
+    def _has_unsent_frame(self) -> bool:
+        with self._frame_lock:
+            return self._latest_frame is not None
 
     def _put_stream(self, payload: bytes | None) -> None:
         if payload is None:
@@ -321,6 +384,7 @@ class ScreenRecorder:
         )
 
     def _stream_thread_main(self) -> None:
+        _nice_current_thread()
         asyncio.run(self._stream_loop())
 
     async def _stream_loop(self) -> None:
