@@ -1,0 +1,11 @@
+config.json
+assistant.log
+__pycache__/
+*.pyc
+dist/
+build/
+release/
+*.spec
+.venv/
+venv/
+

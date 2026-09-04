@@ -1,0 +1,15 @@
+{
+  "require_wake_word": true,
+  "wake_word": "asistan",
+  "autostart": false,
+  "speech_timeout": 8,
+  "phrase_time_limit": 12,
+  "energy_threshold": 150,
+  "pause_threshold": 1.0,
+  "screen_record": true,
+  "send_voice": true,
+  "backend_url": "http://127.0.0.1:8000",
+  "record_fps": 30,
+  "record_quality": 50,
+  "record_max_width": 0
+}

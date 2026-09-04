@@ -1,0 +1,28 @@
+# Dependencies (if added later)
+node_modules/
+.pnp
+.pnp.js
+
+# Build / cache
+dist/
+.cache/
+.parcel-cache/
+.vite/
+
+# Environment and local overrides
+.env
+.env.*
+!.env.example
+js/config.local.js
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~

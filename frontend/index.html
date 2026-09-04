@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Google Assistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="icon" type="image/png" href="assets/icon.png" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to live view</a>
+
+  <header class="topbar">
+    <div class="brand">
+      <img class="logo" src="assets/icon.png" alt="" width="36" height="36" />
+      <div>
+        <h1>Google Assistant</h1>
+        <p>Desktop stream and spoken audio</p>
+      </div>
+    </div>
+    <div class="status-pills">
+      <button type="button" class="listen-toggle" id="listen-toggle" aria-pressed="false">
+        <span class="listen-switch" aria-hidden="true"></span>
+        <span id="listen-toggle-label">Voice assistant off</span>
+      </button>
+      <div class="pill"><span class="dot" id="health-dot"></span><span id="health-label">Connecting…</span></div>
+      <div class="pill"><span class="dot" id="live-dot"></span><span id="live-label">Idle</span></div>
+      <div class="pill"><span class="dot" id="voice-dot"></span><span id="voice-label">No voice yet</span></div>
+    </div>
+  </header>
+
+  <main id="main">
+    <section id="panel-live" class="panel">
+      <div class="stage">
+        <canvas id="live-canvas" aria-label="Live desktop stream" hidden></canvas>
+        <div id="live-empty" class="empty-stage">
+          <strong>Waiting for live video</strong>
+          <p>Turn on Voice assistant in the header when you want the PC to listen. The microphone stays off until then.</p>
+        </div>
+        <div class="live-badge" id="live-badge" hidden><span class="pulse" aria-hidden="true"></span> LIVE</div>
+      </div>
+      <div class="live-meta" id="live-meta">No active session</div>
+    </section>
+
+    <aside class="voice-panel" aria-labelledby="voice-heading">
+      <div class="voice-head">
+        <div>
+          <h2 id="voice-heading">Voice clips</h2>
+          <p class="voice-sub" id="voice-count">Saved when something is said into the mic</p>
+        </div>
+        <label class="autoplay">
+          <input type="checkbox" id="voice-autoplay" checked />
+          Play new clips
+        </label>
+      </div>
+      <p class="sr-only" id="voice-live" aria-live="polite"></p>
+      <div class="voice-body">
+        <ol id="voice-list" class="voice-list"></ol>
+        <p id="voice-empty" class="voice-empty">No clips yet. Enable Voice assistant, then speak.</p>
+      </div>
+    </aside>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

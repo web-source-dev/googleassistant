@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+
+# Local runtime data (voice clips, installer builds)
+data/
+recordings/
+static/uploads/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs and process files
+*.log
+logs/
+.pm2/
+*.pid
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~

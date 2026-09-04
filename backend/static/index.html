@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Google Assistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0b1220;
+      --bg-elevated: #121a2b;
+      --bg-hover: #1a2438;
+      --line: #243049;
+      --text: #e8eef9;
+      --muted: #8b9bb8;
+      --accent: #3b82f6;
+      --accent-soft: rgba(59, 130, 246, 0.16);
+      --live: #f43f5e;
+      --ok: #34d399;
+      --danger: #fb7185;
+      --radius: 12px;
+      --space: 8px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--line);
+      background: #0e1626;
+    }
+
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .logo {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(180deg, #60a5fa, #2563eb);
+      display: grid; place-items: center; font-weight: 700;
+    }
+    h1 { margin: 0; font-size: 18px; font-weight: 600; }
+    .subtitle { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+
+    .pills { display: flex; gap: 8px; align-items: center; }
+    .pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 10px; border-radius: 999px;
+      background: var(--bg-elevated); border: 1px solid var(--line);
+      font-size: 12px; color: var(--muted);
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+    .dot.live { background: var(--live); box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.18); }
+    .dot.ok { background: var(--ok); }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(320px, 420px) 1fr;
+      min-height: 0;
+    }
+
+    aside {
+      border-right: 1px solid var(--line);
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: 0;
+    }
+
+    .toolbar {
+      display: flex; gap: 8px; padding: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    input[type="search"] {
+      flex: 1; min-width: 0;
+      background: var(--bg-elevated); color: var(--text);
+      border: 1px solid var(--line); border-radius: 8px;
+      padding: 8px 12px; font: inherit;
+    }
+    input[type="search"]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+    .list { overflow: auto; padding: 8px; }
+
+    .card {
+      width: 100%; text-align: left;
+      background: transparent; color: inherit;
+      border: 1px solid transparent; border-radius: var(--radius);
+      padding: 12px; cursor: pointer;
+    }
+    .card:hover { background: var(--bg-hover); }
+    .card.active { background: var(--accent-soft); border-color: #2563eb; }
+    .card-top { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+    .host { font-weight: 600; font-size: 14px; }
+    .badge {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
+      text-transform: uppercase; padding: 2px 8px; border-radius: 999px;
+    }
+    .badge.live { background: rgba(244, 63, 94, 0.16); color: #fda4af; }
+    .badge.done { background: rgba(52, 211, 153, 0.12); color: #6ee7b7; }
+    .meta { margin-top: 6px; color: var(--muted); font-size: 12px; font-family: "IBM Plex Mono", monospace; }
+
+    .player {
+      min-width: 0; display: grid;
+      grid-template-rows: auto 1fr auto;
+      padding: 24px; gap: 16px;
+    }
+    video {
+      width: 100%; max-height: 62vh; background: #000;
+      border-radius: 16px; border: 1px solid var(--line);
+    }
+    .empty, .error {
+      min-height: 280px; display: grid; place-items: center;
+      color: var(--muted); text-align: center; padding: 32px;
+      border: 1px dashed var(--line); border-radius: 16px;
+    }
+    .details { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .stat {
+      background: var(--bg-elevated); border: 1px solid var(--line);
+      border-radius: var(--radius); padding: 12px 14px;
+    }
+    .stat span { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+    .stat strong { font-size: 14px; font-weight: 600; }
+
+    .actions { display: flex; gap: 8px; }
+    button {
+      font: inherit; cursor: pointer; border-radius: 8px;
+      border: 1px solid var(--line); background: var(--bg-elevated); color: var(--text);
+      padding: 8px 12px;
+    }
+    button.primary { background: var(--accent); border-color: #2563eb; }
+    button.danger { color: var(--danger); }
+    button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      aside { border-right: 0; border-bottom: 1px solid var(--line); max-height: 40vh; }
+      .details { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="logo" aria-hidden="true">H</div>
+      <div>
+        <h1>Google Assistant</h1>
+        <p class="subtitle">Saved copies of every desktop stream</p>
+      </div>
+    </div>
+    <div class="pills">
+      <div class="pill"><span id="health-dot" class="dot"></span><span id="health-label">Checking backend…</span></div>
+      <div class="pill"><span id="live-dot" class="dot"></span><span id="live-label">0 live</span></div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside>
+      <div class="toolbar">
+        <input id="search" type="search" placeholder="Filter by PC or user" aria-label="Filter recordings" />
+      </div>
+      <div id="list" class="list" role="list"></div>
+    </aside>
+    <section class="player" aria-live="polite">
+      <div id="player-wrap" class="empty">Select a recording to play it.</div>
+      <div id="details" class="details" hidden></div>
+      <div id="actions" class="actions" hidden></div>
+    </section>
+  </main>
+
+  <script>
+    const state = { recordings: [], selectedId: null };
+
+    const listEl = document.getElementById("list");
+    const playerWrap = document.getElementById("player-wrap");
+    const detailsEl = document.getElementById("details");
+    const actionsEl = document.getElementById("actions");
+    const searchEl = document.getElementById("search");
+
+    function formatBytes(bytes) {
+      if (!bytes) return "0 B";
+      const units = ["B", "KB", "MB", "GB"];
+      const i = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+      return `${(bytes / (1024 ** i)).toFixed(i ? 1 : 0)} ${units[i]}`;
+    }
+
+    function formatDuration(sec) {
+      const total = Math.max(0, Math.round(sec || 0));
+      const h = Math.floor(total / 3600);
+      const m = Math.floor((total % 3600) / 60);
+      const s = total % 60;
+      if (h) return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+      return `${m}:${String(s).padStart(2, "0")}`;
+    }
+
+    function formatWhen(iso) {
+      if (!iso) return "—";
+      const d = new Date(iso);
+      return d.toLocaleString();
+    }
+
+    function filtered() {
+      const q = searchEl.value.trim().toLowerCase();
+      if (!q) return state.recordings;
+      return state.recordings.filter((item) =>
+        `${item.hostname} ${item.username} ${item.filename}`.toLowerCase().includes(q)
+      );
+    }
+
+    function renderList() {
+      const items = filtered();
+      if (!items.length) {
+        listEl.innerHTML = `<div class="empty">No recordings yet. Start the voice assistant while this backend is running.</div>`;
+        return;
+      }
+      listEl.innerHTML = items.map((item) => `
+        <button class="card ${item.id === state.selectedId ? "active" : ""}" data-id="${item.id}" role="listitem">
+          <div class="card-top">
+            <span class="host">${item.hostname || "PC"} · ${item.username || "user"}</span>
+            <span class="badge ${item.status === "recording" ? "live" : "done"}">${item.status}</span>
+          </div>
+          <div class="meta">${formatWhen(item.started_at)} · ${formatDuration(item.duration_sec)} · ${formatBytes(item.bytes)}</div>
+        </button>
+      `).join("");
+    }
+
+    function renderPlayer(item) {
+      if (!item) {
+        playerWrap.className = "empty";
+        playerWrap.textContent = "Select a recording to play it.";
+        detailsEl.hidden = true;
+        actionsEl.hidden = true;
+        return;
+      }
+      playerWrap.className = "";
+      playerWrap.innerHTML = `
+        <video controls autoplay src="${item.video_url}"></video>
+      `;
+      detailsEl.hidden = false;
+      detailsEl.innerHTML = `
+        <div class="stat"><span>Started</span><strong>${formatWhen(item.started_at)}</strong></div>
+        <div class="stat"><span>Duration</span><strong>${formatDuration(item.duration_sec)}</strong></div>
+        <div class="stat"><span>Resolution</span><strong>${item.width}×${item.height} @ ${item.fps} fps</strong></div>
+        <div class="stat"><span>Size</span><strong>${formatBytes(item.bytes)}</strong></div>
+      `;
+      actionsEl.hidden = false;
+      actionsEl.innerHTML = `
+        <a href="${item.video_url}" download><button class="primary" type="button">Download MP4</button></a>
+        ${item.status === "recording" ? "" : `<button class="danger" type="button" data-delete="${item.id}">Delete</button>`}
+      `;
+    }
+
+    async function load() {
+      try {
+        const res = await fetch("/api/recordings");
+        const data = await res.json();
+        state.recordings = data.recordings || [];
+        document.getElementById("health-dot").className = "dot ok";
+        document.getElementById("health-label").textContent = "Backend online";
+        const live = data.live_sessions || 0;
+        document.getElementById("live-dot").className = live ? "dot live" : "dot";
+        document.getElementById("live-label").textContent = `${live} live`;
+        if (state.selectedId && !state.recordings.some((item) => item.id === state.selectedId)) {
+          state.selectedId = state.recordings[0]?.id || null;
+        }
+        renderList();
+        const selected = state.recordings.find((item) => item.id === state.selectedId);
+        if (selected && !document.querySelector("video")) renderPlayer(selected);
+        else if (!state.selectedId) renderPlayer(null);
+      } catch (err) {
+        document.getElementById("health-dot").className = "dot live";
+        document.getElementById("health-label").textContent = "Backend unreachable";
+        listEl.innerHTML = `<div class="error">Could not load recordings.</div>`;
+      }
+    }
+
+    listEl.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-id]");
+      if (!button) return;
+      state.selectedId = button.dataset.id;
+      renderList();
+      renderPlayer(state.recordings.find((item) => item.id === state.selectedId));
+    });
+
+    actionsEl.addEventListener("click", async (event) => {
+      const button = event.target.closest("[data-delete]");
+      if (!button) return;
+      if (!confirm("Delete this recording from the server?")) return;
+      await fetch(`/api/recordings/${button.dataset.delete}`, { method: "DELETE" });
+      state.selectedId = null;
+      await load();
+      renderPlayer(null);
+    });
+
+    searchEl.addEventListener("input", renderList);
+    load();
+    setInterval(load, 5000);
+  </script>
+</body>
+</html>
