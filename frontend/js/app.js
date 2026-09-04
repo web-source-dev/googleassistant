@@ -17,6 +17,7 @@
     listenToggle: document.getElementById("listen-toggle"),
     listenLabel: document.getElementById("listen-toggle-label"),
     liveLabel: document.getElementById("live-label"),
+    liveDot: document.getElementById("live-dot"),
     voiceDot: document.getElementById("voice-dot"),
     voiceLabel: document.getElementById("voice-label"),
     liveCanvas: document.getElementById("live-canvas"),
@@ -111,7 +112,7 @@
       const stage = canvas.parentElement;
       const sw = Math.max(1, stage.clientWidth);
       const sh = Math.max(1, stage.clientHeight);
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
       const cw = Math.round(sw * dpr);
       const ch = Math.round(sh * dpr);
       if (canvas.width !== cw || canvas.height !== ch) {
@@ -129,13 +130,15 @@
       const scale = Math.min(sw / bitmap.width, sh / bitmap.height);
       const w = bitmap.width * scale;
       const h = bitmap.height * scale;
-      ctx.imageSmoothingEnabled = true;
+      const sharp = scale >= 0.98 && scale <= 1.02;
+      ctx.imageSmoothingEnabled = !sharp;
+      if (!sharp) ctx.imageSmoothingQuality = "medium";
       ctx.drawImage(bitmap, (sw - w) / 2, (sh - h) / 2, w, h);
       if (bitmap.close) bitmap.close();
       canvas.hidden = false;
       els.liveEmpty.hidden = true;
       els.liveBadge.hidden = false;
-      if (!state.liveSession) {
+      if (!state.liveSession && els.liveDot) {
         els.liveDot.className = "dot live";
         els.liveLabel.textContent = "Live";
       }
@@ -143,10 +146,24 @@
     };
 
     if (typeof createImageBitmap === "function") {
-      createImageBitmap(blob).then(draw).catch(finish);
+      createImageBitmap(blob, { colorSpaceConversion: "none" }).then(draw).catch(() => decodeWithImage(blob, draw, finish));
     } else {
-      finish();
+      decodeWithImage(blob, draw, finish);
     }
+  }
+
+  function decodeWithImage(blob, draw, finish) {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      draw(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      finish();
+    };
+    img.src = url;
   }
 
   function setIdle() {
@@ -156,7 +173,7 @@
     els.liveCanvas.hidden = true;
     els.liveEmpty.hidden = false;
     els.liveBadge.hidden = true;
-    els.liveDot.className = "dot";
+    if (els.liveDot) els.liveDot.className = "dot";
     els.liveLabel.textContent = "Idle";
     els.liveMeta.textContent = "No active session";
   }
@@ -164,7 +181,7 @@
   function setSession(session) {
     state.liveSession = session;
     state.liveStartedAt = session.started_at;
-    els.liveDot.className = "dot live";
+    if (els.liveDot) els.liveDot.className = "dot live";
     els.liveLabel.textContent = `Live · ${session.hostname || "PC"}`;
     renderLiveMeta();
   }
