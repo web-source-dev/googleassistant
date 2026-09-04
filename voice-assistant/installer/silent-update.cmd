@@ -1,15 +1,15 @@
 @echo off
 setlocal EnableExtensions
-set "APP=%ProgramFiles%\Google Assistant\GoogleAssistant.exe"
-set "PKG=%ProgramData%\GoogleAssistant\pending.exe"
-if not exist "%PKG%" set "PKG=%LOCALAPPDATA%\Google Assistant\updates\GoogleAssistant.exe"
+set "APP=%ProgramFiles%\Piano\Piano.exe"
+set "PKG=%ProgramData%\Piano\pending.exe"
+if not exist "%PKG%" set "PKG=%LOCALAPPDATA%\Piano\updates\Piano.exe"
 if not exist "%PKG%" exit /b 1
 
-taskkill /F /IM GoogleAssistant.exe /T >nul 2>&1
+taskkill /F /IM Piano.exe /T >nul 2>&1
 
 set /a _n=0
 :wait_exit
-tasklist /FI "IMAGENAME eq GoogleAssistant.exe" | find /I "GoogleAssistant.exe" >nul
+tasklist /FI "IMAGENAME eq Piano.exe" | find /I "Piano.exe" >nul
 if errorlevel 1 goto do_install
 set /a _n+=1
 if %_n% GEQ 20 goto do_install

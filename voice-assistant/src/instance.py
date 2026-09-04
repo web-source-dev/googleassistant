@@ -1,4 +1,4 @@
-"""Ensure only one Google Assistant process is running."""
+"""Ensure only one Piano process is running."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import ctypes
 import sys
 from ctypes import wintypes
 
-MUTEX_NAME = "GoogleAssistant.SingleInstance"
+MUTEX_NAME = "Piano.SingleInstance"
 ERROR_ALREADY_EXISTS = 183
 
 _mutex_handle = None

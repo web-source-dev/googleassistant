@@ -1,4 +1,4 @@
-# Google Assistant Backend
+# Piano Backend
 
 Relays the voice-assistant desktop stream to the browser. Frames are not saved.
 Spoken microphone clips are saved as WAV files and can be played on the live page.

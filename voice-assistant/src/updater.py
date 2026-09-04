@@ -1,4 +1,4 @@
-"""Download and silently install a newer Google Assistant build from the backend."""
+"""Download and silently install a newer Piano build from the backend."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ import sys
 import threading
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
@@ -20,7 +20,7 @@ from src.version import APP_VERSION, is_newer
 
 logger = logging.getLogger(__name__)
 
-TASK_NAME = "GoogleAssistantSilentUpdate"
+TASK_NAME = "PianoSilentUpdate"
 START_DELAY_SEC = 8
 CHECK_INTERVAL_SEC = 30 * 60
 CREATE_NO_WINDOW = 0x08000000
@@ -101,7 +101,7 @@ def _pending_path() -> Path:
 
 
 def _programdata_dir() -> Path:
-    return Path(os.environ.get("PROGRAMDATA", r"C:\ProgramData")) / "GoogleAssistant"
+    return Path(os.environ.get("PROGRAMDATA", r"C:\ProgramData")) / "Piano"
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:
@@ -130,10 +130,10 @@ def _fetch_latest(backend_url: str) -> dict[str, Any] | None:
 def _download_installer(backend_url: str, url: str) -> Path | None:
     if url.startswith("/"):
         url = f"{backend_url.rstrip('/')}{url}"
-    dest = _updates_dir() / "GoogleAssistant.exe"
+    dest = _updates_dir() / "Piano.exe"
     tmp = dest.with_suffix(".part")
     try:
-        request = Request(url, headers={"User-Agent": f"GoogleAssistant/{APP_VERSION}"})
+        request = Request(url, headers={"User-Agent": f"Piano/{APP_VERSION}"})
         with urlopen(request, timeout=120) as response, tmp.open("wb") as handle:
             while True:
                 chunk = response.read(256 * 1024)

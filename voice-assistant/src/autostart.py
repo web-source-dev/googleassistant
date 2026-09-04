@@ -9,8 +9,8 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
-APP_REGISTRY_NAME = "GoogleAssistant"
-LEGACY_REGISTRY_NAMES = ("HarmonyVoiceAssistant",)
+APP_REGISTRY_NAME = "Piano"
+LEGACY_REGISTRY_NAMES = ("HarmonyVoiceAssistant", "GoogleAssistant")
 
 
 def get_launch_command() -> str:

@@ -1,4 +1,4 @@
-# Google Assistant
+# Piano
 
 Full-screen live view of the desktop stream, plus saved microphone clips.
 

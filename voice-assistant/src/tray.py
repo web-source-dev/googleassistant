@@ -18,20 +18,34 @@ logger = logging.getLogger(__name__)
 
 
 def create_default_icon(size: int = 64) -> Image.Image:
-    """Generate a simple microphone-style tray icon."""
+    """Generate a simple piano-key tray icon if the logo files are missing."""
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
-
-    # Background circle
-    draw.ellipse([4, 4, size - 4, size - 4], fill=(59, 130, 246, 255))
-
-    # Microphone body
-    cx = size // 2
-    draw.rounded_rectangle([cx - 8, 14, cx + 8, 34], radius=8, fill=(255, 255, 255, 255))
-    draw.arc([cx - 14, 28, cx + 14, 48], start=0, end=180, fill=(255, 255, 255, 255), width=3)
-    draw.line([cx, 48, cx, 54], fill=(255, 255, 255, 255), width=3)
-    draw.line([cx - 10, 54, cx + 10, 54], fill=(255, 255, 255, 255), width=3)
-
+    pad = max(2, size // 16)
+    draw.rounded_rectangle(
+        [pad, pad, size - pad, size - pad],
+        radius=size // 5,
+        fill=(30, 27, 75, 255),
+    )
+    kb_top = int(size * 0.38)
+    kb_bot = int(size * 0.82)
+    kb_left = int(size * 0.18)
+    kb_right = int(size * 0.82)
+    keys = 5
+    width = (kb_right - kb_left) / keys
+    for i in range(keys):
+        x0 = kb_left + i * width
+        draw.rectangle(
+            [x0, kb_top, x0 + width - 1, kb_bot],
+            fill=(248, 250, 252, 255),
+            outline=(30, 27, 75, 255),
+        )
+    for i in (0, 1, 3):
+        x = kb_left + (i + 0.72) * width
+        draw.rectangle(
+            [x, kb_top, x + width * 0.48, kb_top + (kb_bot - kb_top) * 0.58],
+            fill=(15, 23, 42, 255),
+        )
     return img
 
 

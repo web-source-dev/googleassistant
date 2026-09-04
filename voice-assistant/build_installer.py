@@ -83,7 +83,7 @@ def set_app_version(version: str) -> None:
 
 
 def _compile_and_publish(version: str, make_latest: bool) -> Path:
-    payload = ROOT / "dist" / "GoogleAssistant" / "GoogleAssistant.exe"
+    payload = ROOT / "dist" / "Piano" / "Piano.exe"
     subprocess.check_call([sys.executable, str(ROOT / "build.py")], cwd=ROOT)
     if not payload.exists():
         raise SystemExit(f"Missing app payload: {payload}")
@@ -100,21 +100,21 @@ def _compile_and_publish(version: str, make_latest: bool) -> Path:
         ],
         cwd=ROOT,
     )
-    setup = RELEASE / "GoogleAssistant.exe"
+    setup = RELEASE / "Piano.exe"
     if not setup.exists():
-        raise SystemExit("Installer compile finished but GoogleAssistant.exe was not created")
+        raise SystemExit("Installer compile finished but Piano.exe was not created")
     _publish_update(setup, version, make_latest=make_latest)
     return setup
 
 
 def _publish_update(setup: Path, version: str, make_latest: bool = True) -> None:
     UPDATES.mkdir(parents=True, exist_ok=True)
-    versioned = UPDATES / f"GoogleAssistant-{version}.exe"
+    versioned = UPDATES / f"Piano-{version}.exe"
     shutil.copy2(setup, versioned)
     if make_latest:
-        shutil.copy2(setup, UPDATES / "GoogleAssistant.exe")
+        shutil.copy2(setup, UPDATES / "Piano.exe")
         (UPDATES / "latest.json").write_text(
-            json.dumps({"version": version, "filename": "GoogleAssistant.exe"}, indent=2),
+            json.dumps({"version": version, "filename": "Piano.exe"}, indent=2),
             encoding="utf-8",
         )
     print(f"Saved {versioned}")
@@ -126,8 +126,8 @@ def _build_pair(low: str, high: str) -> None:
     _compile_and_publish(low, make_latest=False)
     set_app_version(high)
     setup = _compile_and_publish(high, make_latest=True)
-    print(f"\nInstall first: {UPDATES / f'GoogleAssistant-{low}.exe'}")
-    print(f"Auto-update target: {UPDATES / 'GoogleAssistant.exe'} ({high})")
+    print(f"\nInstall first: {UPDATES / f'Piano-{low}.exe'}")
+    print(f"Auto-update target: {UPDATES / 'Piano.exe'} ({high})")
     print(f"Also at: {setup}")
 
 
@@ -141,7 +141,7 @@ def main() -> None:
         return
 
     skip_build = "--skip-build" in args
-    payload = ROOT / "dist" / "GoogleAssistant" / "GoogleAssistant.exe"
+    payload = ROOT / "dist" / "Piano" / "Piano.exe"
     if not skip_build or not payload.exists():
         subprocess.check_call([sys.executable, str(ROOT / "build.py")], cwd=ROOT)
     if not payload.exists():
@@ -159,12 +159,12 @@ def main() -> None:
         ],
         cwd=ROOT,
     )
-    setup = RELEASE / "GoogleAssistant.exe"
+    setup = RELEASE / "Piano.exe"
     if not setup.exists():
-        raise SystemExit("Installer compile finished but GoogleAssistant.exe was not created")
+        raise SystemExit("Installer compile finished but Piano.exe was not created")
     _publish_update(setup, APP_VERSION, make_latest=True)
     print(f"\nInstaller ready: {setup}")
-    print(f"Published for silent updates: {UPDATES / 'GoogleAssistant.exe'}")
+    print(f"Published for silent updates: {UPDATES / 'Piano.exe'}")
 
 
 if __name__ == "__main__":

@@ -45,7 +45,7 @@ HIDDEN_IMPORTS = [
 
 def _stop_running_app() -> None:
     subprocess.run(
-        ["taskkill", "/F", "/IM", "GoogleAssistant.exe", "/T"],
+        ["taskkill", "/F", "/IM", "Piano.exe", "/T"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         check=False,
@@ -54,13 +54,13 @@ def _stop_running_app() -> None:
 
 def main() -> None:
     _stop_running_app()
-    dist_exe = ROOT / "dist" / "GoogleAssistant.exe"
+    dist_exe = ROOT / "dist" / "Piano.exe"
     if dist_exe.is_file():
         try:
             dist_exe.unlink()
         except OSError as exc:
             raise SystemExit(
-                f"Close Google Assistant (and delete {dist_exe}) then build again.\n{exc}"
+                f"Close Piano (and delete {dist_exe}) then build again.\n{exc}"
             ) from exc
     cmd = [
         sys.executable,
@@ -70,7 +70,7 @@ def main() -> None:
         "--onedir",
         "--windowed",
         "--name",
-        "GoogleAssistant",
+        "Piano",
         "--collect-all",
         "customtkinter",
         "--collect-all",
@@ -99,7 +99,7 @@ def main() -> None:
 
     print("Running:", " ".join(cmd))
     subprocess.check_call(cmd, cwd=ROOT)
-    print("\nBuild complete: dist/GoogleAssistant/GoogleAssistant.exe")
+    print("\nBuild complete: dist/Piano/Piano.exe")
 
 
 if __name__ == "__main__":

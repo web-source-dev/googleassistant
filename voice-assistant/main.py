@@ -1,5 +1,5 @@
 """
-Google Assistant — Desktop voice-activated assistant.
+Piano — Desktop voice-activated assistant.
 
 The microphone stays off until Voice assistant is enabled in the web panel.
 """

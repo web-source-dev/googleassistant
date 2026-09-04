@@ -1,4 +1,4 @@
-# Google Assistant
+# Piano
 
 Windows tray assistant. Say the Turkish wake word, then what to open. While it runs, it can stream the desktop live to [http://127.0.0.1:8000](http://127.0.0.1:8000). Spoken audio is sent to the backend and saved there.
 
@@ -26,7 +26,7 @@ cd voice-assistant
 python build_installer.py
 ```
 
-Then run `release/GoogleAssistant.exe`. It installs into `C:\Program Files\Google Assistant`. Config goes to `%LOCALAPPDATA%\Google Assistant`, not next to the installer.
+Then run `release/Piano.exe`. It installs into `C:\Program Files\Piano`. Config goes to `%LOCALAPPDATA%\Piano`, not next to the installer.
 
 Building the installer also copies it to `backend/data/updates/` so installed PCs can silent-update from the live backend. Bump `src/version.py`, rebuild, keep the backend running; the tray app downloads the new installer and installs it without a wizard, then shows a notification whether it updated or was already current.
 

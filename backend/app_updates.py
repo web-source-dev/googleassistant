@@ -10,7 +10,7 @@ from fastapi import HTTPException
 from fastapi.responses import FileResponse
 
 UPDATES_DIR = Path(__file__).resolve().parent / "data" / "updates"
-INSTALLER_NAME = "GoogleAssistant.exe"
+INSTALLER_NAME = "Piano.exe"
 
 
 def latest_payload() -> dict[str, Any]:
@@ -52,6 +52,6 @@ def _read_manifest() -> dict[str, Any] | None:
 
 def _installer_path(filename: str) -> Path:
     name = Path(filename).name
-    if name not in {INSTALLER_NAME, "GoogleAssistantSetup.exe"}:
+    if name not in {INSTALLER_NAME, "Piano.exe", "GoogleAssistant.exe", "GoogleAssistantSetup.exe"}:
         name = INSTALLER_NAME
     return UPDATES_DIR / name

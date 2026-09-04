@@ -1,4 +1,4 @@
-"""Configuration for Google Assistant."""
+"""Configuration for Piano."""
 
 from __future__ import annotations
 
@@ -11,8 +11,8 @@ from typing import Any
 
 from src.targets import ALIASES, KNOWN_TARGETS  # re-exported for callers
 
-APP_NAME = "Google Assistant"
-APP_ID = "GoogleAssistant"
+APP_NAME = "Piano"
+APP_ID = "Piano"
 DEFAULT_BACKEND_URL = "http://187.127.151.185:8000"
 
 DEFAULTS: dict[str, Any] = {

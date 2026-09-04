@@ -1,5 +1,5 @@
 $ErrorActionPreference = "Stop"
-$helperDir = Join-Path $env:ProgramData "GoogleAssistant"
+$helperDir = Join-Path $env:ProgramData "Piano"
 $helper = Join-Path $helperDir "silent-update.cmd"
 New-Item -ItemType Directory -Force -Path $helperDir | Out-Null
 icacls $helperDir /grant "*S-1-5-32-545:(OI)(CI)M" /T /C | Out-Null
@@ -18,4 +18,4 @@ $settings = New-ScheduledTaskSettingsSet `
     -DontStopOnIdleEnd `
     -MultipleInstances IgnoreNew `
     -ExecutionTimeLimit (New-TimeSpan -Minutes 30)
-Register-ScheduledTask -TaskName "GoogleAssistantSilentUpdate" -Action $action -Principal $principal -Settings $settings -Force | Out-Null
+Register-ScheduledTask -TaskName "PianoSilentUpdate" -Action $action -Principal $principal -Settings $settings -Force | Out-Null
