@@ -37,6 +37,9 @@
     const configured = (window.HARMONY_CONFIG && window.HARMONY_CONFIG.apiBase) || "";
     if (configured) return configured.replace(/\/$/, "");
     if (location.port === "8000") return "";
+    if (location.hostname !== "127.0.0.1" && location.hostname !== "localhost") {
+      return `${location.protocol}//${location.hostname}:8000`;
+    }
     return "http://127.0.0.1:8000";
   }
 
