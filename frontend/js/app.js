@@ -418,7 +418,7 @@
     els.sidePanel.hidden = hidden;
     els.sidebarToggle.setAttribute("aria-pressed", hidden ? "false" : "true");
     els.sidebarToggle.textContent = hidden ? "Show sidebar" : "Hide sidebar";
-    els.sidebarToggle.title = hidden ? "Show the join times and voice panel" : "Hide the join times and voice panel";
+    els.sidebarToggle.title = hidden ? "Show the share times and voice panel" : "Hide the share times and voice panel";
   }
 
   function toggleSidebar() {
@@ -463,24 +463,23 @@
     if (!iso) return "";
     const date = new Date(iso);
     if (Number.isNaN(date.getTime())) return "";
+    const day = date.toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" });
     const time = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-    const today = new Date();
-    if (date.toDateString() === today.toDateString()) return time;
-    return `${date.toLocaleDateString([], { month: "short", day: "numeric" })} ${time}`;
+    return `${day} ${time}`;
   }
 
   function upsertJoin(entry) {
-    if (!entry || !entry.at) return;
-    if (state.joins.some((item) => item.at === entry.at && item.event === entry.event)) return;
-    state.joins.unshift({ at: entry.at, event: entry.event === "session" ? "session" : "joined" });
+    if (!entry || !entry.at || entry.event !== "session") return;
+    if (state.joins.some((item) => item.at === entry.at && item.event === "session")) return;
+    state.joins.unshift({ at: entry.at, event: "session" });
     state.joins = state.joins.slice(0, 80);
     renderJoins();
   }
 
   function setJoins(items) {
     state.joins = (Array.isArray(items) ? items : [])
-      .filter((item) => item && item.at)
-      .map((item) => ({ at: item.at, event: item.event === "session" ? "session" : "joined" }))
+      .filter((item) => item && item.at && item.event === "session")
+      .map((item) => ({ at: item.at, event: "session" }))
       .slice(0, 80);
     renderJoins();
   }
@@ -489,8 +488,8 @@
     const count = state.joins.length;
     els.joinEmpty.hidden = count > 0;
     els.joinCount.textContent = count
-      ? `${count} join ${count === 1 ? "time" : "times"}`
-      : "Time a live session was joined";
+      ? `${count} share ${count === 1 ? "time" : "times"}`
+      : "Date and time the PC started sharing the screen";
     els.joinList.replaceChildren();
     for (const entry of state.joins) {
       const item = document.createElement("li");
@@ -499,7 +498,7 @@
       time.dateTime = entry.at;
       time.textContent = joinWhen(entry.at);
       const kind = document.createElement("span");
-      kind.textContent = entry.event === "session" ? "Session" : "Viewer";
+      kind.textContent = "Screen share";
       item.append(time, kind);
       els.joinList.append(item);
     }

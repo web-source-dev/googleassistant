@@ -1,4 +1,4 @@
-"""Time-only log of when a live session is joined."""
+"""Log of when the PC starts sharing the screen."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 MAX_ITEMS = 200
-VIEWER_DEBOUNCE_SEC = 2.5
+SESSION_DEBOUNCE_SEC = 2.5
 
 
 def _now() -> datetime:
@@ -39,12 +39,13 @@ class JoinLog:
     def list(self, limit: int = 80) -> list[dict[str, Any]]:
         return self.items[: max(1, min(int(limit or 80), MAX_ITEMS))]
 
-    def add(self, event: str = "joined") -> dict[str, Any] | None:
-        kind = "session" if event == "session" else "joined"
-        moment = _now()
-        if kind == "joined" and self._too_soon(moment):
+    def add(self, event: str = "session") -> dict[str, Any] | None:
+        if event != "session":
             return None
-        item = {"at": _iso(moment), "event": kind}
+        moment = _now()
+        if self._too_soon(moment):
+            return None
+        item = {"at": _iso(moment), "event": "session"}
         self.items.insert(0, item)
         self.items = self.items[:MAX_ITEMS]
         self._save()
@@ -54,14 +55,14 @@ class JoinLog:
         if not self.items:
             return False
         last = self.items[0]
-        if last.get("event") != "joined":
+        if last.get("event") != "session":
             return False
         previous = _parse(str(last.get("at") or ""))
         if previous is None:
             return False
         if previous.tzinfo is None:
             previous = previous.replace(tzinfo=timezone.utc)
-        return (moment - previous).total_seconds() < VIEWER_DEBOUNCE_SEC
+        return (moment - previous).total_seconds() < SESSION_DEBOUNCE_SEC
 
     def _load(self) -> None:
         if not self.path.exists():
@@ -79,10 +80,9 @@ class JoinLog:
             if not isinstance(row, dict):
                 continue
             at = str(row.get("at") or "").strip()
-            if not at:
+            if not at or row.get("event") != "session":
                 continue
-            event = "session" if row.get("event") == "session" else "joined"
-            cleaned.append({"at": at, "event": event})
+            cleaned.append({"at": at, "event": "session"})
         self.items = cleaned[:MAX_ITEMS]
 
     def _save(self) -> None:

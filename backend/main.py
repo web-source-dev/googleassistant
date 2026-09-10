@@ -195,8 +195,11 @@ async def record_socket(websocket: WebSocket) -> None:
                     continue
                 kind = str(payload.get("type") or "")
                 if kind in {"start", "segment"}:
+                    was_live = live_hub.session is not None
                     await live_hub.set_session(_session_meta(payload))
-                    logger.info("Live session joined at %s", datetime.now().astimezone().strftime("%H:%M:%S"))
+                    if not was_live:
+                        clock = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S")
+                        logger.info("Screen shared at %s", clock)
                     await websocket.send_json({"type": "ack"})
                 elif kind == "stop":
                     await live_hub.set_session(None)
@@ -216,11 +219,7 @@ async def record_socket(websocket: WebSocket) -> None:
 async def live_socket(websocket: WebSocket) -> None:
     await websocket.accept()
     await live_hub.add(websocket)
-    clock = datetime.now().astimezone().strftime("%H:%M:%S")
-    if live_hub.session is not None:
-        logger.info("Live view joined at %s (%s watching)", clock, live_hub.viewer_count())
-    else:
-        logger.info("Viewer connected (%s)", live_hub.viewer_count())
+    logger.info("Viewer connected (%s)", live_hub.viewer_count())
     try:
         while True:
             message = await websocket.receive()

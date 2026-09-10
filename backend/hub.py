@@ -43,7 +43,6 @@ class LiveHub:
 
     async def add(self, websocket: WebSocket) -> None:
         self.viewers.add(websocket)
-        join = self.join_log.add("joined") if self.session is not None else None
         if self.session is not None:
             await self._safe_json(websocket, {"type": "session", **self.session})
         else:
@@ -53,8 +52,6 @@ class LiveHub:
         await self._safe_json(websocket, {"type": "joins", "items": self.join_log.list()})
         if self.latest_jpeg:
             await self._safe_bytes(websocket, self.latest_jpeg)
-        if join:
-            await self._broadcast_json({"type": "join", **join}, skip=websocket)
         await self._broadcast_json(self.viewers_payload(), skip=websocket)
 
     def remove(self, websocket: WebSocket) -> None:
@@ -65,13 +62,14 @@ class LiveHub:
         await self._broadcast_json(self.viewers_payload())
 
     async def set_session(self, meta: dict[str, Any] | None) -> None:
+        was_live = self.session is not None
         self.session = meta
         if meta is None:
             self.latest_jpeg = None
             self._generation += 1
             await self._broadcast_json({"type": "idle"})
             return
-        join = self.join_log.add("session")
+        join = self.join_log.add("session") if not was_live else None
         await self._broadcast_json({"type": "session", **meta})
         if join:
             await self._broadcast_json({"type": "join", **join})

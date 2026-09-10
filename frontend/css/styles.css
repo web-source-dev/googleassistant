@@ -413,8 +413,11 @@ main {
 }
 
 .join-item time {
+  flex: 1;
+  min-width: 0;
   color: var(--text);
   font-variant-numeric: tabular-nums;
+  white-space: normal;
 }
 
 .join-item span {
