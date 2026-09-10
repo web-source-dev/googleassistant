@@ -9,21 +9,27 @@ from typing import Any
 from fastapi import WebSocket
 from starlette.websockets import WebSocketState
 
+from join_log import JoinLog
+
 logger = logging.getLogger(__name__)
 
 
 class LiveHub:
-    def __init__(self) -> None:
+    def __init__(self, join_log: JoinLog) -> None:
         self.viewers: set[WebSocket] = set()
         self.latest_jpeg: bytes | None = None
         self.session: dict[str, Any] | None = None
         self.source: WebSocket | None = None
         self.listening_enabled = False
+        self.join_log = join_log
         self._busy: set[WebSocket] = set()
         self._generation = 0
 
     def viewer_count(self) -> int:
         return len(self.viewers)
+
+    def viewers_payload(self) -> dict[str, Any]:
+        return {"type": "viewers", "count": self.viewer_count()}
 
     def assistant_connected(self) -> bool:
         return self.source is not None and self.source.client_state == WebSocketState.CONNECTED
@@ -37,17 +43,26 @@ class LiveHub:
 
     async def add(self, websocket: WebSocket) -> None:
         self.viewers.add(websocket)
+        join = self.join_log.add("joined") if self.session is not None else None
         if self.session is not None:
             await self._safe_json(websocket, {"type": "session", **self.session})
         else:
             await self._safe_json(websocket, {"type": "idle"})
         await self._safe_json(websocket, self.listen_payload())
+        await self._safe_json(websocket, self.viewers_payload())
+        await self._safe_json(websocket, {"type": "joins", "items": self.join_log.list()})
         if self.latest_jpeg:
             await self._safe_bytes(websocket, self.latest_jpeg)
+        if join:
+            await self._broadcast_json({"type": "join", **join}, skip=websocket)
+        await self._broadcast_json(self.viewers_payload(), skip=websocket)
 
     def remove(self, websocket: WebSocket) -> None:
         self.viewers.discard(websocket)
         self._busy.discard(websocket)
+
+    async def notify_viewer_left(self) -> None:
+        await self._broadcast_json(self.viewers_payload())
 
     async def set_session(self, meta: dict[str, Any] | None) -> None:
         self.session = meta
@@ -56,7 +71,10 @@ class LiveHub:
             self._generation += 1
             await self._broadcast_json({"type": "idle"})
             return
+        join = self.join_log.add("session")
         await self._broadcast_json({"type": "session", **meta})
+        if join:
+            await self._broadcast_json({"type": "join", **join})
 
     async def set_source(self, websocket: WebSocket) -> None:
         self.source = websocket
@@ -108,8 +126,10 @@ class LiveHub:
         finally:
             self._busy.discard(websocket)
 
-    async def _broadcast_json(self, payload: dict[str, Any]) -> None:
+    async def _broadcast_json(self, payload: dict[str, Any], skip: WebSocket | None = None) -> None:
         for websocket in list(self.viewers):
+            if websocket is skip:
+                continue
             await self._safe_json(websocket, payload)
 
     async def _safe_json(self, websocket: WebSocket, payload: dict[str, Any]) -> None:

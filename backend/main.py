@@ -21,6 +21,7 @@ from pydantic import BaseModel
 from audio_store import MAX_WAV_BYTES, AudioStore
 from hub import LiveHub
 from app_updates import installer_file, latest_payload
+from join_log import JoinLog
 
 ROOT = Path(__file__).resolve().parent
 FRONTEND_DIR = ROOT.parent / "frontend"
@@ -41,7 +42,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-live_hub = LiveHub()
+live_hub = LiveHub(JoinLog(ROOT / "data" / "joins.json"))
 audio_store = AudioStore(ROOT / "data" / "audio")
 
 
@@ -74,6 +75,7 @@ def health() -> dict[str, Any]:
         "voice_clips": audio_store.count(),
         "listening": live_hub.listening_enabled,
         "assistant_connected": live_hub.assistant_connected(),
+        "joins": len(live_hub.join_log.items),
     }
 
 
@@ -97,6 +99,11 @@ def live_frame() -> Response:
         media_type="image/jpeg",
         headers={"Cache-Control": "no-store"},
     )
+
+
+@app.get("/api/joins")
+def list_joins(limit: int = 80) -> dict[str, Any]:
+    return {"items": live_hub.join_log.list(limit)}
 
 
 @app.get("/api/listen")
@@ -189,6 +196,7 @@ async def record_socket(websocket: WebSocket) -> None:
                 kind = str(payload.get("type") or "")
                 if kind in {"start", "segment"}:
                     await live_hub.set_session(_session_meta(payload))
+                    logger.info("Live session joined at %s", datetime.now().astimezone().strftime("%H:%M:%S"))
                     await websocket.send_json({"type": "ack"})
                 elif kind == "stop":
                     await live_hub.set_session(None)
@@ -208,7 +216,11 @@ async def record_socket(websocket: WebSocket) -> None:
 async def live_socket(websocket: WebSocket) -> None:
     await websocket.accept()
     await live_hub.add(websocket)
-    logger.info("Viewer connected (%s)", live_hub.viewer_count())
+    clock = datetime.now().astimezone().strftime("%H:%M:%S")
+    if live_hub.session is not None:
+        logger.info("Live view joined at %s (%s watching)", clock, live_hub.viewer_count())
+    else:
+        logger.info("Viewer connected (%s)", live_hub.viewer_count())
     try:
         while True:
             message = await websocket.receive()
@@ -218,6 +230,7 @@ async def live_socket(websocket: WebSocket) -> None:
         pass
     finally:
         live_hub.remove(websocket)
+        await live_hub.notify_viewer_left()
         logger.info("Viewer left (%s)", live_hub.viewer_count())
 
 
