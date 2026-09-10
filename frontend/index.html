@@ -34,33 +34,54 @@
 
   <main id="main">
     <section id="panel-live" class="panel">
-      <div class="stage">
+      <div class="stage" id="live-stage">
         <canvas id="live-canvas" aria-label="Live desktop stream" hidden></canvas>
         <div id="live-empty" class="empty-stage">
           <strong>Waiting for live video</strong>
-          <p>Turn on Voice assistant in the header when you want the PC to listen. The microphone stays off until then.</p>
+          <p>When the desktop app starts streaming, it will appear here. Use Pause, Snapshot, and Full screen once it is live.</p>
         </div>
-        <div class="live-badge" id="live-badge" hidden><span class="pulse" aria-hidden="true"></span> LIVE</div>
+        <div class="live-badge" id="live-badge" hidden><span class="pulse" aria-hidden="true"></span> <span id="live-badge-text">LIVE</span></div>
+        <div class="live-toolbar" id="live-toolbar">
+          <button type="button" id="live-pause" aria-pressed="false">Pause</button>
+          <button type="button" id="live-snap">Snapshot</button>
+          <button type="button" id="live-full">Full screen</button>
+        </div>
       </div>
-      <div class="live-meta" id="live-meta">No active session</div>
+      <div class="live-bar">
+        <div class="live-meta" id="live-meta">No active session</div>
+        <p class="live-hint">Space pause · F full screen · S snapshot · double-click to expand</p>
+      </div>
     </section>
 
-    <aside class="voice-panel" aria-labelledby="voice-heading">
-      <div class="voice-head">
-        <div>
-          <h2 id="voice-heading">Voice clips</h2>
-          <p class="voice-sub" id="voice-count">Saved when something is said into the mic</p>
+    <aside class="side-panel">
+      <section class="join-panel" aria-labelledby="join-heading">
+        <div class="join-head">
+          <div>
+            <h2 id="join-heading">Join times</h2>
+            <p class="join-sub" id="join-count">Time a live session was joined</p>
+          </div>
         </div>
-        <label class="autoplay">
-          <input type="checkbox" id="voice-autoplay" checked />
-          Play new clips
-        </label>
-      </div>
-      <p class="sr-only" id="voice-live" aria-live="polite"></p>
-      <div class="voice-body">
-        <ol id="voice-list" class="voice-list"></ol>
-        <p id="voice-empty" class="voice-empty">No clips yet. Enable Voice assistant, then speak.</p>
-      </div>
+        <ol id="join-list" class="join-list"></ol>
+        <p id="join-empty" class="join-empty">No joins yet. Times appear when someone opens live view or the PC starts streaming.</p>
+      </section>
+
+      <section class="voice-panel" aria-labelledby="voice-heading">
+        <div class="voice-head">
+          <div>
+            <h2 id="voice-heading">Voice clips</h2>
+            <p class="voice-sub" id="voice-count">Saved when something is said into the mic</p>
+          </div>
+          <label class="autoplay">
+            <input type="checkbox" id="voice-autoplay" checked />
+            Play new clips
+          </label>
+        </div>
+        <p class="sr-only" id="voice-live" aria-live="polite"></p>
+        <div class="voice-body">
+          <ol id="voice-list" class="voice-list"></ol>
+          <p id="voice-empty" class="voice-empty">No clips yet. Enable Voice assistant, then speak.</p>
+        </div>
+      </section>
     </aside>
   </main>
 

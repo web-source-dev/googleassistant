@@ -7,8 +7,12 @@
     liveCtx: null,
     ws: null,
     clips: [],
+    joins: [],
     playingId: null,
     player: new Audio(),
+    paused: false,
+    hasFrame: false,
+    viewerCount: 0,
   };
 
   const els = {
@@ -20,10 +24,18 @@
     liveDot: document.getElementById("live-dot"),
     voiceDot: document.getElementById("voice-dot"),
     voiceLabel: document.getElementById("voice-label"),
+    liveStage: document.getElementById("live-stage"),
     liveCanvas: document.getElementById("live-canvas"),
     liveEmpty: document.getElementById("live-empty"),
     liveBadge: document.getElementById("live-badge"),
+    liveBadgeText: document.getElementById("live-badge-text"),
     liveMeta: document.getElementById("live-meta"),
+    livePause: document.getElementById("live-pause"),
+    liveSnap: document.getElementById("live-snap"),
+    liveFull: document.getElementById("live-full"),
+    joinList: document.getElementById("join-list"),
+    joinEmpty: document.getElementById("join-empty"),
+    joinCount: document.getElementById("join-count"),
     voiceList: document.getElementById("voice-list"),
     voiceEmpty: document.getElementById("voice-empty"),
     voiceCount: document.getElementById("voice-count"),
@@ -88,6 +100,11 @@
 
   function showLiveFrame(buffer) {
     state.latestLive = buffer;
+    state.hasFrame = true;
+    if (state.paused) {
+      updateLiveControls();
+      return;
+    }
     if (state.paintScheduled) return;
     state.paintScheduled = true;
     requestAnimationFrame(paintLive);
@@ -103,6 +120,10 @@
 
     const blob = new Blob([buffer], { type: "image/jpeg" });
     const finish = () => {
+      if (state.paused) {
+        state.paintScheduled = false;
+        return;
+      }
       if (state.latestLive) requestAnimationFrame(paintLive);
       else state.paintScheduled = false;
     };
@@ -137,7 +158,8 @@
       if (bitmap.close) bitmap.close();
       canvas.hidden = false;
       els.liveEmpty.hidden = true;
-      els.liveBadge.hidden = false;
+      updateLiveBadge();
+      updateLiveControls();
       if (!state.liveSession && els.liveDot) {
         els.liveDot.className = "dot live";
         els.liveLabel.textContent = "Live";
@@ -170,12 +192,15 @@
     state.liveSession = null;
     state.liveStartedAt = null;
     state.latestLive = null;
+    state.hasFrame = false;
+    state.paused = false;
     els.liveCanvas.hidden = true;
     els.liveEmpty.hidden = false;
-    els.liveBadge.hidden = true;
+    updateLiveBadge();
+    updateLiveControls();
     if (els.liveDot) els.liveDot.className = "dot";
     els.liveLabel.textContent = "Idle";
-    els.liveMeta.textContent = "No active session";
+    renderLiveMeta();
   }
 
   function setSession(session) {
@@ -183,13 +208,41 @@
     state.liveStartedAt = session.started_at;
     if (els.liveDot) els.liveDot.className = "dot live";
     els.liveLabel.textContent = `Live · ${session.hostname || "PC"}`;
+    updateLiveBadge();
     renderLiveMeta();
+  }
+
+  function setViewerCount(count) {
+    state.viewerCount = Math.max(0, Number(count) || 0);
+    updateLiveBadge();
+    renderLiveMeta();
+  }
+
+  function updateLiveBadge() {
+    const live = Boolean(state.liveSession || state.hasFrame);
+    els.liveBadge.hidden = !live;
+    if (!els.liveBadgeText) return;
+    if (state.paused) {
+      els.liveBadgeText.textContent = "PAUSED";
+      return;
+    }
+    const watchers = state.viewerCount ? ` · ${state.viewerCount}` : "";
+    els.liveBadgeText.textContent = `LIVE${watchers}`;
+  }
+
+  function updateLiveControls() {
+    els.livePause.setAttribute("aria-pressed", state.paused ? "true" : "false");
+    els.livePause.textContent = state.paused ? "Resume" : "Pause";
+    els.livePause.disabled = !state.hasFrame && !state.liveSession;
+    els.liveSnap.disabled = !state.hasFrame;
   }
 
   function renderLiveMeta() {
     const session = state.liveSession;
     if (!session) {
-      els.liveMeta.textContent = "No active session";
+      els.liveMeta.textContent = state.viewerCount
+        ? `No active session · ${state.viewerCount} watching`
+        : "No active session";
       return;
     }
     els.liveMeta.textContent = [
@@ -198,6 +251,8 @@
       session.width && session.height ? `${session.width}×${session.height}` : null,
       session.fps ? `${session.fps} fps` : null,
       elapsed(state.liveStartedAt),
+      state.viewerCount ? `${state.viewerCount} watching` : null,
+      state.paused ? "paused" : null,
     ].filter(Boolean).join("  ·  ");
   }
 
@@ -364,6 +419,119 @@
     }
   }
 
+  function joinWhen(iso) {
+    if (!iso) return "";
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return "";
+    const time = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const today = new Date();
+    if (date.toDateString() === today.toDateString()) return time;
+    return `${date.toLocaleDateString([], { month: "short", day: "numeric" })} ${time}`;
+  }
+
+  function upsertJoin(entry) {
+    if (!entry || !entry.at) return;
+    if (state.joins.some((item) => item.at === entry.at && item.event === entry.event)) return;
+    state.joins.unshift({ at: entry.at, event: entry.event === "session" ? "session" : "joined" });
+    state.joins = state.joins.slice(0, 80);
+    renderJoins();
+  }
+
+  function setJoins(items) {
+    state.joins = (Array.isArray(items) ? items : [])
+      .filter((item) => item && item.at)
+      .map((item) => ({ at: item.at, event: item.event === "session" ? "session" : "joined" }))
+      .slice(0, 80);
+    renderJoins();
+  }
+
+  function renderJoins() {
+    const count = state.joins.length;
+    els.joinEmpty.hidden = count > 0;
+    els.joinCount.textContent = count
+      ? `${count} join ${count === 1 ? "time" : "times"}`
+      : "Time a live session was joined";
+    els.joinList.replaceChildren();
+    for (const entry of state.joins) {
+      const item = document.createElement("li");
+      item.className = "join-item";
+      const time = document.createElement("time");
+      time.dateTime = entry.at;
+      time.textContent = joinWhen(entry.at);
+      const kind = document.createElement("span");
+      kind.textContent = entry.event === "session" ? "Session" : "Viewer";
+      item.append(time, kind);
+      els.joinList.append(item);
+    }
+  }
+
+  async function loadJoins() {
+    try {
+      const response = await fetch(`${apiBase()}/api/joins?limit=80`);
+      if (!response.ok) return;
+      const data = await response.json();
+      setJoins(data.items);
+    } catch (_err) {
+      // Backend may still be starting.
+    }
+  }
+
+  function togglePause() {
+    if (!state.hasFrame && !state.liveSession) return;
+    state.paused = !state.paused;
+    updateLiveBadge();
+    updateLiveControls();
+    renderLiveMeta();
+    if (!state.paused && state.latestLive && !state.paintScheduled) {
+      state.paintScheduled = true;
+      requestAnimationFrame(paintLive);
+    }
+  }
+
+  function saveSnapshot() {
+    if (!state.hasFrame || els.liveCanvas.hidden) return;
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    els.liveCanvas.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `piano-live-${stamp}.jpg`;
+      link.click();
+      URL.revokeObjectURL(url);
+    }, "image/jpeg", 0.92);
+  }
+
+  async function toggleFullscreen() {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+        return;
+      }
+      await els.liveStage.requestFullscreen();
+    } catch (_err) {
+      // Fullscreen can be blocked by the browser.
+    }
+  }
+
+  function onLiveKey(event) {
+    if (event.target && ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(event.target.tagName) && event.key !== " ") {
+      return;
+    }
+    if (event.target && event.target.tagName === "BUTTON" && event.key === " ") return;
+    const key = event.key.toLowerCase();
+    if (key === " " || key === "k") {
+      event.preventDefault();
+      togglePause();
+    } else if (key === "f") {
+      event.preventDefault();
+      toggleFullscreen();
+    } else if (key === "s" && !event.ctrlKey && !event.metaKey) {
+      event.preventDefault();
+      saveSnapshot();
+    }
+  }
+
   function connectLive() {
     if (state.ws && (state.ws.readyState === WebSocket.OPEN || state.ws.readyState === WebSocket.CONNECTING)) {
       return;
@@ -377,6 +545,7 @@
       els.healthLabel.textContent = "Backend online";
       loadClips();
       loadListen();
+      loadJoins();
     });
 
     socket.addEventListener("message", (event) => {
@@ -387,6 +556,9 @@
           if (payload.type === "idle") setIdle();
           if (payload.type === "voice") onVoice(payload);
           if (payload.type === "listen") setListenState(payload);
+          if (payload.type === "viewers") setViewerCount(payload.count);
+          if (payload.type === "joins") setJoins(payload.items);
+          if (payload.type === "join") upsertJoin(payload);
         } catch (_err) {
           // Ignore malformed control messages.
         }
@@ -408,8 +580,19 @@
   }
 
   els.listenToggle.addEventListener("click", toggleListen);
+  els.livePause.addEventListener("click", togglePause);
+  els.liveSnap.addEventListener("click", saveSnapshot);
+  els.liveFull.addEventListener("click", toggleFullscreen);
+  els.liveStage.addEventListener("dblclick", (event) => {
+    if (event.target.closest(".live-toolbar")) return;
+    toggleFullscreen();
+  });
+  document.addEventListener("keydown", onLiveKey);
   connectLive();
   loadClips();
   loadListen();
+  loadJoins();
+  updateLiveControls();
+  renderJoins();
   setInterval(renderLiveMeta, 1000);
 })();
