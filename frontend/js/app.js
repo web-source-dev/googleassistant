@@ -13,6 +13,9 @@
     paused: false,
     hasFrame: false,
     viewerCount: 0,
+    pipActive: false,
+    pipStream: null,
+    pipWindow: null,
   };
 
   const els = {
@@ -31,6 +34,8 @@
     liveBadgeText: document.getElementById("live-badge-text"),
     liveMeta: document.getElementById("live-meta"),
     livePause: document.getElementById("live-pause"),
+    livePip: document.getElementById("live-pip"),
+    livePipVideo: document.getElementById("live-pip-video"),
     liveSnap: document.getElementById("live-snap"),
     liveFull: document.getElementById("live-full"),
     joinList: document.getElementById("join-list"),
@@ -41,6 +46,9 @@
     voiceCount: document.getElementById("voice-count"),
     voiceLive: document.getElementById("voice-live"),
     voiceAutoplay: document.getElementById("voice-autoplay"),
+    sidebarToggle: document.getElementById("sidebar-toggle"),
+    sidePanel: document.getElementById("side-panel"),
+    main: document.getElementById("main"),
   };
 
   function apiBase() {
@@ -107,6 +115,14 @@
     }
     if (state.paintScheduled) return;
     state.paintScheduled = true;
+    schedulePaint();
+  }
+
+  function schedulePaint() {
+    if (state.pipActive || document.hidden) {
+      setTimeout(paintLive, 50);
+      return;
+    }
     requestAnimationFrame(paintLive);
   }
 
@@ -124,7 +140,7 @@
         state.paintScheduled = false;
         return;
       }
-      if (state.latestLive) requestAnimationFrame(paintLive);
+      if (state.latestLive) schedulePaint();
       else state.paintScheduled = false;
     };
 
@@ -155,6 +171,7 @@
       ctx.imageSmoothingEnabled = !sharp;
       if (!sharp) ctx.imageSmoothingQuality = "medium";
       ctx.drawImage(bitmap, (sw - w) / 2, (sh - h) / 2, w, h);
+      copyPipFrame(bitmap);
       if (bitmap.close) bitmap.close();
       canvas.hidden = false;
       els.liveEmpty.hidden = true;
@@ -194,6 +211,7 @@
     state.latestLive = null;
     state.hasFrame = false;
     state.paused = false;
+    void closeMiniPlayer();
     els.liveCanvas.hidden = true;
     els.liveEmpty.hidden = false;
     updateLiveBadge();
@@ -235,6 +253,9 @@
     els.livePause.textContent = state.paused ? "Resume" : "Pause";
     els.livePause.disabled = !state.hasFrame && !state.liveSession;
     els.liveSnap.disabled = !state.hasFrame;
+    els.livePip.disabled = !state.hasFrame;
+    els.livePip.setAttribute("aria-pressed", state.pipActive ? "true" : "false");
+    els.livePip.textContent = state.pipActive ? "Close mini" : "Mini player";
   }
 
   function renderLiveMeta() {
@@ -253,6 +274,7 @@
       elapsed(state.liveStartedAt),
       state.viewerCount ? `${state.viewerCount} watching` : null,
       state.paused ? "paused" : null,
+      state.pipActive ? "mini player" : null,
     ].filter(Boolean).join("  ·  ");
   }
 
@@ -391,6 +413,24 @@
       : "Start the desktop app, then turn this on to use the microphone";
   }
 
+  function applySidebar(hidden) {
+    els.main.classList.toggle("sidebar-hidden", hidden);
+    els.sidePanel.hidden = hidden;
+    els.sidebarToggle.setAttribute("aria-pressed", hidden ? "false" : "true");
+    els.sidebarToggle.textContent = hidden ? "Show sidebar" : "Hide sidebar";
+    els.sidebarToggle.title = hidden ? "Show the join times and voice panel" : "Hide the join times and voice panel";
+  }
+
+  function toggleSidebar() {
+    const hidden = !els.main.classList.contains("sidebar-hidden");
+    applySidebar(hidden);
+    try {
+      localStorage.setItem("piano-sidebar-hidden", hidden ? "1" : "0");
+    } catch (_err) {
+      // Private mode may block storage.
+    }
+  }
+
   async function toggleListen() {
     const enabled = els.listenToggle.getAttribute("aria-pressed") === "true";
     els.listenToggle.disabled = true;
@@ -476,6 +516,106 @@
     }
   }
 
+  function copyPipFrame(bitmap) {
+    const ctx = state.pipCtx;
+    if (!ctx || !state.pipWindow) return;
+    const canvas = ctx.canvas;
+    const sw = canvas.width;
+    const sh = canvas.height;
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, sw, sh);
+    const scale = Math.min(sw / bitmap.width, sh / bitmap.height);
+    const w = bitmap.width * scale;
+    const h = bitmap.height * scale;
+    ctx.drawImage(bitmap, (sw - w) / 2, (sh - h) / 2, w, h);
+  }
+
+  function isVideoPipOpen() {
+    return Boolean(document.pictureInPictureElement);
+  }
+
+  async function toggleMiniPlayer() {
+    if (state.pipActive || isVideoPipOpen()) {
+      await closeMiniPlayer();
+      return;
+    }
+    if (!state.hasFrame || els.liveCanvas.hidden) return;
+    try {
+      await openVideoPip();
+    } catch (_videoErr) {
+      try {
+        await openDocumentPip();
+      } catch (_docErr) {
+        els.livePip.title = "Mini player needs Chrome, Edge, or Safari";
+      }
+    }
+    updateLiveControls();
+    renderLiveMeta();
+  }
+
+  async function openVideoPip() {
+    if (!document.pictureInPictureEnabled || !els.livePipVideo.requestPictureInPicture) {
+      throw new Error("video-pip-unavailable");
+    }
+    if (!state.pipStream) {
+      state.pipStream = els.liveCanvas.captureStream(15);
+      els.livePipVideo.srcObject = state.pipStream;
+    }
+    els.livePipVideo.muted = true;
+    await els.livePipVideo.play();
+    await els.livePipVideo.requestPictureInPicture();
+    state.pipActive = true;
+  }
+
+  async function openDocumentPip() {
+    if (!window.documentPictureInPicture || !window.documentPictureInPicture.requestWindow) {
+      throw new Error("document-pip-unavailable");
+    }
+    const pipWindow = await window.documentPictureInPicture.requestWindow({
+      width: 480,
+      height: 270,
+    });
+    const doc = pipWindow.document;
+    doc.head.appendChild(doc.createElement("style")).textContent =
+      "html,body{margin:0;height:100%;background:#000;overflow:hidden}canvas{width:100%;height:100%;display:block}";
+    const canvas = doc.createElement("canvas");
+    canvas.width = 960;
+    canvas.height = 540;
+    doc.body.appendChild(canvas);
+    state.pipWindow = pipWindow;
+    state.pipCtx = canvas.getContext("2d", { alpha: false });
+    state.pipActive = true;
+    pipWindow.addEventListener("pagehide", () => {
+      if (state.pipWindow === pipWindow) {
+        state.pipWindow = null;
+        state.pipCtx = null;
+        state.pipActive = isVideoPipOpen();
+        updateLiveControls();
+        renderLiveMeta();
+      }
+    });
+  }
+
+  async function closeMiniPlayer() {
+    try {
+      if (isVideoPipOpen()) await document.exitPictureInPicture();
+    } catch (_err) {
+      // Already closed.
+    }
+    if (state.pipWindow) {
+      try {
+        state.pipWindow.close();
+      } catch (_err) {
+        // Already closed.
+      }
+    }
+    state.pipWindow = null;
+    state.pipCtx = null;
+    state.pipActive = false;
+    updateLiveControls();
+    renderLiveMeta();
+  }
+
   function togglePause() {
     if (!state.hasFrame && !state.liveSession) return;
     state.paused = !state.paused;
@@ -484,7 +624,7 @@
     renderLiveMeta();
     if (!state.paused && state.latestLive && !state.paintScheduled) {
       state.paintScheduled = true;
-      requestAnimationFrame(paintLive);
+      schedulePaint();
     }
   }
 
@@ -523,6 +663,9 @@
     if (key === " " || key === "k") {
       event.preventDefault();
       togglePause();
+    } else if (key === "p") {
+      event.preventDefault();
+      toggleMiniPlayer();
     } else if (key === "f") {
       event.preventDefault();
       toggleFullscreen();
@@ -580,7 +723,9 @@
   }
 
   els.listenToggle.addEventListener("click", toggleListen);
+  els.sidebarToggle.addEventListener("click", toggleSidebar);
   els.livePause.addEventListener("click", togglePause);
+  els.livePip.addEventListener("click", toggleMiniPlayer);
   els.liveSnap.addEventListener("click", saveSnapshot);
   els.liveFull.addEventListener("click", toggleFullscreen);
   els.liveStage.addEventListener("dblclick", (event) => {
@@ -588,11 +733,29 @@
     toggleFullscreen();
   });
   document.addEventListener("keydown", onLiveKey);
+  els.livePipVideo.addEventListener("enterpictureinpicture", () => {
+    state.pipActive = true;
+    updateLiveControls();
+    renderLiveMeta();
+  });
+  els.livePipVideo.addEventListener("leavepictureinpicture", () => {
+    if (!state.pipWindow) state.pipActive = false;
+    updateLiveControls();
+    renderLiveMeta();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) return;
+    if (state.pipActive && state.latestLive && !state.paintScheduled) {
+      state.paintScheduled = true;
+      schedulePaint();
+    }
+  });
   connectLive();
   loadClips();
   loadListen();
   loadJoins();
   updateLiveControls();
   renderJoins();
+  applySidebar(localStorage.getItem("piano-sidebar-hidden") === "1");
   setInterval(renderLiveMeta, 1000);
 })();

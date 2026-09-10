@@ -97,6 +97,34 @@ body {
   cursor: pointer;
 }
 
+.header-toggle {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.header-toggle[aria-pressed="false"] {
+  border-color: rgba(59, 130, 246, 0.45);
+  background: var(--accent-soft, rgba(59, 130, 246, 0.16));
+}
+
+main.sidebar-hidden {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+main.sidebar-hidden .side-panel {
+  display: none;
+}
+
 .listen-toggle:disabled {
   opacity: 0.55;
   cursor: not-allowed;
@@ -279,8 +307,11 @@ main {
   right: 12px;
   bottom: 12px;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 8px;
   z-index: 2;
+  max-width: calc(100% - 24px);
 }
 
 .live-toolbar button {
@@ -308,6 +339,14 @@ main {
 .live-toolbar button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.pip-video {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .side-panel {
@@ -522,6 +561,9 @@ input:focus-visible {
   main {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(42vh, 1fr) minmax(280px, 46vh);
+  }
+  main.sidebar-hidden {
+    grid-template-rows: minmax(0, 1fr);
   }
   .side-panel {
     border-left: 0;

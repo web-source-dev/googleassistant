@@ -22,6 +22,9 @@
       </div>
     </div>
     <div class="status-pills">
+      <button type="button" class="header-toggle" id="sidebar-toggle" aria-pressed="true" aria-controls="side-panel">
+        Hide sidebar
+      </button>
       <button type="button" class="listen-toggle" id="listen-toggle" aria-pressed="false">
         <span class="listen-switch" aria-hidden="true"></span>
         <span id="listen-toggle-label">Voice assistant off</span>
@@ -38,22 +41,24 @@
         <canvas id="live-canvas" aria-label="Live desktop stream" hidden></canvas>
         <div id="live-empty" class="empty-stage">
           <strong>Waiting for live video</strong>
-          <p>When the desktop app starts streaming, it will appear here. Use Pause, Snapshot, and Full screen once it is live.</p>
+          <p>When the desktop app starts streaming, it will appear here. Use Mini player to keep a small window on top while you use other tabs or apps.</p>
         </div>
         <div class="live-badge" id="live-badge" hidden><span class="pulse" aria-hidden="true"></span> <span id="live-badge-text">LIVE</span></div>
         <div class="live-toolbar" id="live-toolbar">
           <button type="button" id="live-pause" aria-pressed="false">Pause</button>
+          <button type="button" id="live-pip" aria-pressed="false" title="Small window that stays on top">Mini player</button>
           <button type="button" id="live-snap">Snapshot</button>
           <button type="button" id="live-full">Full screen</button>
         </div>
+        <video id="live-pip-video" class="pip-video" muted playsinline autoplay></video>
       </div>
       <div class="live-bar">
         <div class="live-meta" id="live-meta">No active session</div>
-        <p class="live-hint">Space pause · F full screen · S snapshot · double-click to expand</p>
+        <p class="live-hint">Space pause · P mini player · F full screen · S snapshot</p>
       </div>
     </section>
 
-    <aside class="side-panel">
+    <aside class="side-panel" id="side-panel">
       <section class="join-panel" aria-labelledby="join-heading">
         <div class="join-head">
           <div>
