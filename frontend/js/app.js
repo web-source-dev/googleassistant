@@ -16,6 +16,9 @@
     pipActive: false,
     pipStream: null,
     pipWindow: null,
+    announcedLiveKey: null,
+    liveAlertPending: false,
+    alertCtx: null,
   };
 
   const els = {
@@ -38,6 +41,8 @@
     livePipVideo: document.getElementById("live-pip-video"),
     liveSnap: document.getElementById("live-snap"),
     liveFull: document.getElementById("live-full"),
+    liveAlert: document.getElementById("live-alert"),
+    liveAnnounce: document.getElementById("live-announce"),
     joinList: document.getElementById("join-list"),
     joinEmpty: document.getElementById("join-empty"),
     joinCount: document.getElementById("join-count"),
@@ -211,6 +216,8 @@
     state.latestLive = null;
     state.hasFrame = false;
     state.paused = false;
+    state.announcedLiveKey = null;
+    state.liveAlertPending = false;
     void closeMiniPlayer();
     els.liveCanvas.hidden = true;
     els.liveEmpty.hidden = false;
@@ -218,6 +225,7 @@
     updateLiveControls();
     if (els.liveDot) els.liveDot.className = "dot";
     els.liveLabel.textContent = "Idle";
+    if (els.liveAnnounce) els.liveAnnounce.textContent = "";
     renderLiveMeta();
   }
 
@@ -228,6 +236,92 @@
     els.liveLabel.textContent = `Live · ${session.hostname || "PC"}`;
     updateLiveBadge();
     renderLiveMeta();
+    notifyLiveAvailable(session);
+  }
+
+  function liveAlertEnabled() {
+    return Boolean(els.liveAlert && els.liveAlert.checked);
+  }
+
+  function ensureAlertCtx() {
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    if (!Ctor) return null;
+    if (!state.alertCtx) state.alertCtx = new Ctor();
+    return state.alertCtx;
+  }
+
+  function unlockAlertAudio() {
+    const ctx = ensureAlertCtx();
+    if (ctx && ctx.state === "suspended") {
+      const resume = ctx.resume();
+      if (resume && typeof resume.catch === "function") resume.catch(() => {});
+    }
+    if (state.liveAlertPending && liveAlertEnabled()) {
+      state.liveAlertPending = false;
+      playLiveAvailableSound();
+    }
+  }
+
+  function ringTone(ctx, dest, freq, start, dur, peak, type) {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, start);
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(peak, start + 0.018);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, peak * 0.5), start + dur * 0.4);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+    osc.connect(gain);
+    gain.connect(dest);
+    osc.start(start);
+    osc.stop(start + dur + 0.03);
+  }
+
+  function ringLiveChime(ctx) {
+    const now = ctx.currentTime;
+    const master = ctx.createGain();
+    master.gain.setValueAtTime(0.95, now);
+    master.connect(ctx.destination);
+
+    // Three ding-dongs over ~2 seconds so it cuts through music.
+    const pairs = [0, 0.66, 1.32];
+    for (const offset of pairs) {
+      const ding = now + offset;
+      const dong = now + offset + 0.24;
+      ringTone(ctx, master, 784, ding, 0.3, 0.42, "square");
+      ringTone(ctx, master, 784, ding, 0.3, 0.28, "sine");
+      ringTone(ctx, master, 1046.5, dong, 0.48, 0.48, "square");
+      ringTone(ctx, master, 1046.5, dong, 0.48, 0.32, "sine");
+      ringTone(ctx, master, 1568, dong, 0.32, 0.22, "triangle");
+    }
+  }
+
+  function playLiveAvailableSound() {
+    const ctx = ensureAlertCtx();
+    if (!ctx) return;
+    const start = () => ringLiveChime(ctx);
+    if (ctx.state === "suspended") {
+      ctx.resume().then(() => {
+        if (ctx.state === "running") start();
+        else state.liveAlertPending = true;
+      }).catch(() => {
+        state.liveAlertPending = true;
+      });
+      return;
+    }
+    start();
+  }
+
+  function notifyLiveAvailable(session) {
+    const key = (session && (session.started_at || session.hostname)) || "session";
+    if (state.announcedLiveKey === key) return;
+    state.announcedLiveKey = key;
+    const host = (session && session.hostname) || "PC";
+    if (els.liveAnnounce) {
+      els.liveAnnounce.textContent = `Live session available to watch from ${host}`;
+    }
+    if (!liveAlertEnabled()) return;
+    playLiveAvailableSound();
   }
 
   function setViewerCount(count) {
@@ -721,8 +815,24 @@
     });
   }
 
+  function applyLiveAlert(enabled) {
+    if (els.liveAlert) els.liveAlert.checked = enabled;
+    try {
+      localStorage.setItem("piano-live-alert", enabled ? "1" : "0");
+    } catch (_err) {
+      // Private mode may block storage.
+    }
+    if (enabled) unlockAlertAudio();
+    else state.liveAlertPending = false;
+  }
+
   els.listenToggle.addEventListener("click", toggleListen);
   els.sidebarToggle.addEventListener("click", toggleSidebar);
+  if (els.liveAlert) {
+    els.liveAlert.addEventListener("change", () => applyLiveAlert(els.liveAlert.checked));
+  }
+  document.addEventListener("pointerdown", unlockAlertAudio, { passive: true });
+  document.addEventListener("keydown", unlockAlertAudio);
   els.livePause.addEventListener("click", togglePause);
   els.livePip.addEventListener("click", toggleMiniPlayer);
   els.liveSnap.addEventListener("click", saveSnapshot);
@@ -756,5 +866,6 @@
   updateLiveControls();
   renderJoins();
   applySidebar(localStorage.getItem("piano-sidebar-hidden") === "1");
+  applyLiveAlert(localStorage.getItem("piano-live-alert") !== "0");
   setInterval(renderLiveMeta, 1000);
 })();

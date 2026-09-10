@@ -295,6 +295,17 @@ main {
   padding: 0 4px;
 }
 
+.live-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.live-bar-actions .autoplay {
+  min-height: 0;
+}
+
 .live-hint {
   margin: 0;
   color: var(--muted);

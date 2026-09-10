@@ -54,8 +54,15 @@
       </div>
       <div class="live-bar">
         <div class="live-meta" id="live-meta">No active session</div>
-        <p class="live-hint">Space pause · P mini player · F full screen · S snapshot</p>
+        <div class="live-bar-actions">
+          <label class="autoplay">
+            <input type="checkbox" id="live-alert" checked />
+            Sound when live
+          </label>
+          <p class="live-hint">Space pause · P mini player · F full screen · S snapshot</p>
+        </div>
       </div>
+      <p class="sr-only" id="live-announce" aria-live="polite"></p>
     </section>
 
     <aside class="side-panel" id="side-panel">
