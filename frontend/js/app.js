@@ -28,6 +28,8 @@
     listenLabel: document.getElementById("listen-toggle-label"),
     liveLabel: document.getElementById("live-label"),
     liveDot: document.getElementById("live-dot"),
+    headerLive: document.getElementById("header-live"),
+    headerLiveText: document.getElementById("header-live-text"),
     voiceDot: document.getElementById("voice-dot"),
     voiceLabel: document.getElementById("voice-label"),
     liveStage: document.getElementById("live-stage"),
@@ -333,13 +335,16 @@
   function updateLiveBadge() {
     const live = Boolean(state.liveSession || state.hasFrame);
     els.liveBadge.hidden = !live;
-    if (!els.liveBadgeText) return;
-    if (state.paused) {
-      els.liveBadgeText.textContent = "PAUSED";
-      return;
-    }
-    const watchers = state.viewerCount ? ` · ${state.viewerCount}` : "";
-    els.liveBadgeText.textContent = `LIVE${watchers}`;
+    if (els.headerLive) els.headerLive.hidden = !live;
+
+    const label = state.paused ? "PAUSED" : "LIVE";
+    const watchers = !state.paused && state.viewerCount ? ` · ${state.viewerCount}` : "";
+    if (els.liveBadgeText) els.liveBadgeText.textContent = `${label}${watchers}`;
+    if (els.headerLiveText) els.headerLiveText.textContent = label;
+
+    document.title = live
+      ? (state.paused ? "PAUSED · Piano" : "● LIVE · Piano")
+      : "Piano";
   }
 
   function updateLiveControls() {

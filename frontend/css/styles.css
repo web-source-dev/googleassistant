@@ -73,6 +73,25 @@ body {
 .brand h1 { margin: 0; font-size: 18px; font-weight: 600; }
 .brand p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
 
+.header-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 4px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(244, 63, 94, 0.14);
+  border: 1px solid rgba(244, 63, 94, 0.45);
+  color: #fecdd3;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.header-live[hidden] {
+  display: none !important;
+}
+
 .status-pills {
   margin-left: auto;
   display: flex;
