@@ -19,6 +19,7 @@
     announcedLiveKey: null,
     liveAlertPending: false,
     alertCtx: null,
+    initialized: false,
   };
 
   const els = {
@@ -56,7 +57,123 @@
     sidebarToggle: document.getElementById("sidebar-toggle"),
     sidePanel: document.getElementById("side-panel"),
     main: document.getElementById("main"),
+    authOverlay: document.getElementById("auth-overlay"),
+    authForm: document.getElementById("auth-form"),
+    authPassword: document.getElementById("auth-password"),
+    authSubmit: document.getElementById("auth-submit"),
+    authError: document.getElementById("auth-error"),
   };
+
+  const AUTH_STORAGE_KEY = "piano-auth-token";
+
+  function getToken() {
+    try {
+      return localStorage.getItem(AUTH_STORAGE_KEY) || "";
+    } catch (_err) {
+      return "";
+    }
+  }
+
+  function setToken(token) {
+    try {
+      if (token) localStorage.setItem(AUTH_STORAGE_KEY, token);
+      else localStorage.removeItem(AUTH_STORAGE_KEY);
+    } catch (_err) {
+      // Private mode may block storage.
+    }
+  }
+
+  function withToken(url) {
+    const token = getToken();
+    if (!token) return url;
+    const joiner = url.includes("?") ? "&" : "?";
+    return `${url}${joiner}token=${encodeURIComponent(token)}`;
+  }
+
+  function showAuthGate(message) {
+    state.initialized = false;
+    if (state.ws) {
+      try {
+        state.ws.close();
+      } catch (_err) {
+        // Already closed.
+      }
+      state.ws = null;
+    }
+    if (els.authError) els.authError.textContent = message || "";
+    if (els.authOverlay) els.authOverlay.hidden = false;
+    if (els.authPassword) {
+      els.authPassword.value = "";
+      setTimeout(() => els.authPassword.focus(), 0);
+    }
+  }
+
+  function hideAuthGate() {
+    if (els.authOverlay) els.authOverlay.hidden = true;
+  }
+
+  async function apiFetch(path, options = {}) {
+    const token = getToken();
+    const headers = Object.assign({}, options.headers || {});
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const response = await fetch(`${apiBase()}${path}`, { ...options, headers });
+    if (response.status === 401) {
+      setToken("");
+      showAuthGate("Session expired. Enter the password again.");
+    }
+    return response;
+  }
+
+  async function handleAuthSubmit(event) {
+    event.preventDefault();
+    const password = els.authPassword ? els.authPassword.value : "";
+    if (!password) return;
+    els.authSubmit.disabled = true;
+    els.authError.textContent = "";
+    try {
+      const response = await fetch(`${apiBase()}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      if (!response.ok) {
+        let detail = "Incorrect password.";
+        try {
+          const data = await response.json();
+          if (data && data.detail) detail = data.detail;
+        } catch (_err) {
+          // Ignore malformed error body.
+        }
+        els.authError.textContent = detail;
+        return;
+      }
+      const data = await response.json();
+      setToken(data.token);
+      hideAuthGate();
+      initApp();
+    } catch (_err) {
+      els.authError.textContent = "Could not reach the backend.";
+    } finally {
+      els.authSubmit.disabled = false;
+    }
+  }
+
+  async function checkAuthOnLoad() {
+    const token = getToken();
+    if (!token) {
+      showAuthGate();
+      return;
+    }
+    try {
+      const response = await apiFetch("/api/live");
+      if (response.ok) {
+        hideAuthGate();
+        initApp();
+      }
+    } catch (_err) {
+      showAuthGate("Could not reach the backend.");
+    }
+  }
 
   function apiBase() {
     const params = new URLSearchParams(location.search);
@@ -78,11 +195,13 @@
     url.pathname = path;
     url.search = "";
     url.hash = "";
+    const token = getToken();
+    if (token) url.searchParams.set("token", token);
     return url.toString();
   }
 
   function mediaUrl(path) {
-    return `${apiBase()}${path}`;
+    return withToken(`${apiBase()}${path}`);
   }
 
   function formatDuration(sec) {
@@ -474,7 +593,7 @@
 
   async function loadClips() {
     try {
-      const response = await fetch(`${apiBase()}/api/audio?limit=40`);
+      const response = await apiFetch("/api/audio?limit=40");
       if (!response.ok) return;
       const data = await response.json();
       const items = Array.isArray(data.items) ? data.items : [];
@@ -534,7 +653,7 @@
     const enabled = els.listenToggle.getAttribute("aria-pressed") === "true";
     els.listenToggle.disabled = true;
     try {
-      const response = await fetch(`${apiBase()}/api/listen`, {
+      const response = await apiFetch("/api/listen", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enabled: !enabled }),
@@ -550,7 +669,7 @@
 
   async function loadListen() {
     try {
-      const response = await fetch(`${apiBase()}/api/listen`);
+      const response = await apiFetch("/api/listen");
       if (!response.ok) return;
       setListenState(await response.json());
     } catch (_err) {
@@ -605,7 +724,7 @@
 
   async function loadJoins() {
     try {
-      const response = await fetch(`${apiBase()}/api/joins?limit=80`);
+      const response = await apiFetch("/api/joins?limit=80");
       if (!response.ok) return;
       const data = await response.json();
       setJoins(data.items);
@@ -808,8 +927,14 @@
       showLiveFrame(event.data);
     });
 
-    socket.addEventListener("close", () => {
+    socket.addEventListener("close", (event) => {
       if (state.ws === socket) state.ws = null;
+      if (event.code === 1008) {
+        setToken("");
+        showAuthGate("Session expired. Enter the password again.");
+        return;
+      }
+      if (!getToken()) return;
       els.healthDot.className = "dot err";
       els.healthLabel.textContent = "Reconnecting…";
       setTimeout(connectLive, 800);
@@ -864,13 +989,20 @@
       schedulePaint();
     }
   });
-  connectLive();
-  loadClips();
-  loadListen();
-  loadJoins();
+  function initApp() {
+    if (state.initialized) return;
+    state.initialized = true;
+    connectLive();
+    loadClips();
+    loadListen();
+    loadJoins();
+  }
+
+  if (els.authForm) els.authForm.addEventListener("submit", handleAuthSubmit);
   updateLiveControls();
   renderJoins();
   applySidebar(localStorage.getItem("piano-sidebar-hidden") === "1");
   applyLiveAlert(localStorage.getItem("piano-live-alert") !== "0");
   setInterval(renderLiveMeta, 1000);
+  checkAuthOnLoad();
 })();

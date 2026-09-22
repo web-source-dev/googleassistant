@@ -11,6 +11,18 @@
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
+  <div id="auth-overlay" class="auth-overlay">
+    <form id="auth-form" class="auth-card" autocomplete="off">
+      <img class="auth-logo" src="assets/icon.png" alt="" width="40" height="40" />
+      <h1>Piano is locked</h1>
+      <p>Enter the password to view the live stream and voice clips.</p>
+      <label class="sr-only" for="auth-password">Password</label>
+      <input id="auth-password" name="password" type="password" placeholder="Password" autocomplete="current-password" required />
+      <button type="submit" id="auth-submit">Unlock</button>
+      <p id="auth-error" class="auth-error" role="alert"></p>
+    </form>
+  </div>
+
   <a class="skip-link" href="#main">Skip to live view</a>
 
   <header class="topbar">

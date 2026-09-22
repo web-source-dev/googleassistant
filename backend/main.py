@@ -12,11 +12,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
+import auth
 from audio_store import MAX_WAV_BYTES, AudioStore
 from hub import LiveHub
 from app_updates import installer_file, latest_payload
@@ -46,6 +47,10 @@ class ListenRequest(BaseModel):
     enabled: bool
 
 
+class LoginRequest(BaseModel):
+    password: str
+
+
 def _iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -62,6 +67,12 @@ def _session_meta(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+@app.post("/api/auth/login")
+def login(body: LoginRequest) -> dict[str, Any]:
+    token = auth.login(body.password)
+    return {"token": token}
+
+
 @app.get("/api/health")
 def health() -> dict[str, Any]:
     return {
@@ -75,7 +86,7 @@ def health() -> dict[str, Any]:
     }
 
 
-@app.get("/api/live")
+@app.get("/api/live", dependencies=[Depends(auth.require_auth)])
 def live_status() -> dict[str, Any]:
     session = live_hub.session
     return {
@@ -86,7 +97,7 @@ def live_status() -> dict[str, Any]:
     }
 
 
-@app.get("/api/live/frame")
+@app.get("/api/live/frame", dependencies=[Depends(auth.require_auth)])
 def live_frame() -> Response:
     if not live_hub.latest_jpeg:
         raise HTTPException(status_code=404, detail="No live frame")
@@ -97,17 +108,17 @@ def live_frame() -> Response:
     )
 
 
-@app.get("/api/joins")
+@app.get("/api/joins", dependencies=[Depends(auth.require_auth)])
 def list_joins(limit: int = 80) -> dict[str, Any]:
     return {"items": live_hub.join_log.list(limit)}
 
 
-@app.get("/api/listen")
+@app.get("/api/listen", dependencies=[Depends(auth.require_auth)])
 def get_listen() -> dict[str, Any]:
     return live_hub.listen_payload()
 
 
-@app.post("/api/listen")
+@app.post("/api/listen", dependencies=[Depends(auth.require_auth)])
 async def set_listen(body: ListenRequest) -> dict[str, Any]:
     payload = await live_hub.set_listening(body.enabled)
     logger.info(
@@ -128,12 +139,12 @@ def app_download() -> FileResponse:
     return installer_file()
 
 
-@app.get("/api/audio")
+@app.get("/api/audio", dependencies=[Depends(auth.require_auth)])
 def list_audio(limit: int = 50) -> dict[str, Any]:
     return {"items": audio_store.list(limit)}
 
 
-@app.get("/api/audio/{clip_id}")
+@app.get("/api/audio/{clip_id}", dependencies=[Depends(auth.require_auth)])
 def get_audio(clip_id: str) -> FileResponse:
     path = audio_store.wav_path(clip_id)
     if path is None:
@@ -211,7 +222,7 @@ async def record_socket(websocket: WebSocket) -> None:
         await live_hub.set_session(None)
 
 
-@app.websocket("/ws/live")
+@app.websocket("/ws/live", dependencies=[Depends(auth.require_auth_ws)])
 async def live_socket(websocket: WebSocket) -> None:
     await websocket.accept()
     await live_hub.add(websocket)
