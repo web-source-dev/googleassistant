@@ -15,7 +15,6 @@ from typing import Any
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from audio_store import MAX_WAV_BYTES, AudioStore
@@ -24,9 +23,6 @@ from app_updates import installer_file, latest_payload
 from join_log import JoinLog
 
 ROOT = Path(__file__).resolve().parent
-FRONTEND_DIR = ROOT.parent / "frontend"
-STATIC_DIR = ROOT / "static"
-STATIC_DIR.mkdir(parents=True, exist_ok=True)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -231,32 +227,6 @@ async def live_socket(websocket: WebSocket) -> None:
         live_hub.remove(websocket)
         await live_hub.notify_viewer_left()
         logger.info("Viewer left (%s)", live_hub.viewer_count())
-
-
-@app.get("/")
-def dashboard() -> FileResponse:
-    frontend_index = FRONTEND_DIR / "index.html"
-    if frontend_index.exists():
-        return FileResponse(frontend_index)
-    index = STATIC_DIR / "index.html"
-    if not index.exists():
-        raise HTTPException(status_code=404, detail="Live page missing")
-    return FileResponse(index)
-
-
-if FRONTEND_DIR.exists():
-    css_dir = FRONTEND_DIR / "css"
-    js_dir = FRONTEND_DIR / "js"
-    assets_dir = FRONTEND_DIR / "assets"
-    if css_dir.exists():
-        app.mount("/css", StaticFiles(directory=css_dir), name="frontend-css")
-    if js_dir.exists():
-        app.mount("/js", StaticFiles(directory=js_dir), name="frontend-js")
-    if assets_dir.exists():
-        app.mount("/assets", StaticFiles(directory=assets_dir), name="frontend-assets")
-
-if STATIC_DIR.exists():
-    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 if __name__ == "__main__":
